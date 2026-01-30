@@ -10,48 +10,26 @@
     <style>
         :root {
             --bg-body: #F5F7FA;
-            --sidebar-bg: #FFFFFF;
-            --primary: #7B8FA1;       /* Ossen 灰藍 */
+            --primary: #7B8FA1;
             --primary-hover: #56697A;
-            --accent-red: #D4A5A5;    /* 乾燥玫瑰 (支出) */
-            --accent-green: #95B8A6;  /* 莫蘭迪綠 (收入) */
             --text-main: #2D3748;
-            --text-sub: #718096;
         }
         body { 
             font-family: 'Varela Round', 'Noto Sans TC', sans-serif; 
             background-color: var(--bg-body); 
             color: var(--text-main);
             height: 100vh;
-            overflow: hidden; /* 防止整個頁面捲動 */
+            overflow: hidden;
         }
         .num-font { font-family: 'Varela Round', sans-serif; font-weight: 600; }
-        
-        /* 自定義捲軸 */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #A0AEC0; }
-
-        /* 側邊欄連結特效 */
-        .nav-item {
-            display: flex; align-items: center; padding: 12px 20px;
-            margin-bottom: 8px; border-radius: 12px;
-            color: var(--text-sub); transition: all 0.2s; cursor: pointer;
-            font-weight: 500;
-        }
+        
+        .nav-item { display: flex; align-items: center; padding: 12px 20px; margin-bottom: 8px; border-radius: 12px; color: #718096; transition: 0.2s; cursor: pointer; font-weight: 500; }
         .nav-item:hover { background-color: #EDF2F7; color: var(--primary); transform: translateX(4px); }
-        .nav-item.active { 
-            background-color: var(--primary); color: white; 
-            box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3);
-        }
+        .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3); }
 
-        /* 輸入框優化 */
-        .input-std {
-            background: #F7FAFC; border: 1px solid #E2E8F0; 
-            border-radius: 10px; padding: 10px 14px;
-            transition: 0.2s; width: 100%; outline: none;
-        }
+        .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; transition: 0.2s; outline: none; width: 100%; }
         .input-std:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(123, 143, 161, 0.1); }
 
         [v-cloak] { display: none; }
@@ -61,88 +39,70 @@
     <div id="app" v-cloak class="flex h-screen w-full">
         
         <div v-if="!role" class="fixed inset-0 z-50 bg-[#F5F7FA] flex items-center justify-center">
-            <div class="bg-white p-10 rounded-[32px] shadow-2xl w-full max-w-md text-center border border-white/50">
-                <div class="w-24 h-24 bg-[#EDF2F7] rounded-full flex items-center justify-center mx-auto mb-6 text-4xl text-[#7B8FA1]">
-                    <i class="fa-solid fa-laptop-file"></i>
-                </div>
-                <h1 class="text-3xl font-bold text-gray-800 tracking-wider mb-2">Ossen System</h1>
-                <p class="text-gray-400 mb-8 text-sm">請使用鍵盤輸入存取密碼</p>
-                
+            <div class="bg-white p-10 rounded-[32px] shadow-xl w-full max-w-md text-center">
+                <div class="w-20 h-20 bg-[#EDF2F7] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-[#7B8FA1]"><i class="fa-solid fa-laptop-file"></i></div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Ossen System</h1>
+                <p class="text-gray-400 mb-8 text-sm">請輸入存取密碼</p>
                 <div class="relative">
-                    <input 
-                        type="password" 
-                        v-model="pinInput" 
-                        @keyup.enter="checkPin"
-                        placeholder="輸入密碼後按 Enter" 
-                        class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 focus:border-[#7B8FA1] focus:bg-white focus:ring-0 outline-none transition-all placeholder:tracking-normal placeholder:text-base placeholder:text-gray-300"
-                        autofocus
-                    >
-                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-[#7B8FA1] hover:bg-[#56697A] text-white rounded-xl flex items-center justify-center transition">
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
+                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-[#7B8FA1] transition-all" autofocus>
+                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-[#7B8FA1] text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
-                <p v-if="loginError" class="text-red-400 text-sm mt-4 animate-bounce font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i>密碼錯誤</p>
+                <p v-if="loginError" class="text-red-400 text-sm mt-4 animate-bounce font-bold">密碼錯誤</p>
             </div>
         </div>
 
         <template v-else>
-            <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 z-20 shadow-sm">
+            <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 z-20">
                 <div class="p-8 pb-4">
-                    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <i class="fa-solid fa-shapes text-[#7B8FA1]"></i> Ossen
-                    </h1>
+                    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-shapes text-[#7B8FA1]"></i> Ossen</h1>
                     <p class="text-xs text-gray-400 pl-8 mt-1 font-medium">記帳管理系統</p>
                 </div>
 
                 <div class="px-4 mb-6">
                     <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <label class="text-xs text-gray-400 font-bold mb-2 block uppercase tracking-wider">Current Period</label>
+                        <label class="text-xs text-gray-400 font-bold mb-2 block uppercase">Current Period</label>
                         <div class="flex items-center justify-between">
-                            <button @click="changeMonth(-1)" class="w-8 h-8 rounded-full hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 transition"><i class="fa-solid fa-chevron-left"></i></button>
+                            <button @click="changeMonth(-1)" class="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-gray-400"><i class="fa-solid fa-chevron-left"></i></button>
                             <input type="month" v-model="currentMonth" class="bg-transparent font-bold text-gray-700 text-center w-28 cursor-pointer outline-none">
-                            <button @click="changeMonth(1)" class="w-8 h-8 rounded-full hover:bg-white hover:shadow-sm flex items-center justify-center text-gray-400 transition"><i class="fa-solid fa-chevron-right"></i></button>
+                            <button @click="changeMonth(1)" class="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-gray-400"><i class="fa-solid fa-chevron-right"></i></button>
                         </div>
                     </div>
                 </div>
 
                 <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-4">帳本切換</div>
-                    <div @click="currentTab = 'cash'" :class="['nav-item', currentTab === 'cash' ? 'active' : '']">
-                        <i class="fa-solid fa-wallet w-5 text-center mr-3"></i> 現金帳本
-                    </div>
-                    <div @click="currentTab = 'account'" :class="['nav-item', currentTab === 'account' ? 'active' : '']">
-                        <i class="fa-solid fa-building-columns w-5 text-center mr-3"></i> 銀行帳戶
-                    </div>
+                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-4">帳本</div>
+                    <div @click="currentTab = 'cash'" :class="['nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet w-5 mr-3 text-center"></i> 現金帳本</div>
+                    <div @click="currentTab = 'account'" :class="['nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns w-5 mr-3 text-center"></i> 銀行帳戶</div>
 
                     <div v-if="isAdmin">
-                        <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">管理功能</div>
-                        <div @click="showReconcileModal = true" class="nav-item hover:text-green-600">
-                            <i class="fa-solid fa-clipboard-check w-5 text-center mr-3"></i> 帳務核對
-                        </div>
-                        <div @click="showSettings = true" class="nav-item">
-                            <i class="fa-solid fa-gear w-5 text-center mr-3"></i> 初始設定
-                        </div>
+                        <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">管理</div>
+                        <div @click="showReconcileModal = true" class="nav-item hover:text-green-600"><i class="fa-solid fa-clipboard-check w-5 mr-3 text-center"></i> 帳務核對</div>
+                        <div @click="showSettings = true" class="nav-item"><i class="fa-solid fa-gear w-5 mr-3 text-center"></i> 系統設定</div>
                     </div>
                 </nav>
 
                 <div class="p-4 border-t border-gray-100">
-                    <div @click="logout" class="nav-item text-red-400 hover:bg-red-50 hover:text-red-500 mb-0">
-                        <i class="fa-solid fa-right-from-bracket w-5 text-center mr-3"></i> 登出系統
-                    </div>
+                    <div @click="logout" class="nav-item text-red-400 hover:bg-red-50 hover:text-red-500 mb-0"><i class="fa-solid fa-right-from-bracket w-5 mr-3 text-center"></i> 登出</div>
                 </div>
             </aside>
 
             <main class="flex-1 flex flex-col min-w-0 bg-[#F5F7FA]">
-                
                 <header class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm z-10">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800">{{ currentTab === 'cash' ? '現金帳本 Cash' : '銀行帳戶 Bank' }}</h2>
-                        <span v-if="role === 'viewer'" class="text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded-full font-bold">僅供檢視模式</span>
+                        <h2 class="text-xl font-bold text-gray-800">{{ currentTab === 'cash' ? '現金帳本' : '銀行帳戶' }} <span v-if="role === 'viewer'" class="text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded-full ml-2">檢視模式</span></h2>
                     </div>
                     
-                    <div class="relative w-64">
-                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-300"></i>
-                        <input type="text" v-model="searchQuery" placeholder="搜尋紀錄..." class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-gray-200 transition">
+                    <div class="flex items-center gap-4">
+                        <div class="flex bg-gray-100 rounded-xl p-1">
+                            <button @click="filterType = 'all'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', filterType === 'all' ? 'bg-white text-gray-600 shadow-sm' : 'text-gray-400 hover:text-gray-500']">全部</button>
+                            <button @click="filterType = 'income'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', filterType === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400 hover:text-[#95B8A6]']">只看收入</button>
+                            <button @click="filterType = 'expense'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', filterType === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400 hover:text-[#D4A5A5]']">只看支出</button>
+                        </div>
+
+                        <div class="relative w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-300"></i>
+                            <input type="text" v-model="searchQuery" placeholder="搜尋紀錄..." class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-gray-200 transition">
+                        </div>
                     </div>
                 </header>
 
@@ -150,68 +110,41 @@
                     <div class="max-w-6xl mx-auto space-y-6">
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-1 relative overflow-hidden group">
-                                <div class="absolute right-0 top-0 w-24 h-24 bg-[#7B8FA1]/10 rounded-bl-[60px] transition group-hover:bg-[#7B8FA1]/20"></div>
+                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                                <div class="absolute right-0 top-0 w-24 h-24 bg-[#7B8FA1]/10 rounded-bl-[60px]"></div>
                                 <div class="text-sm text-gray-400 font-medium mb-1">本月期末餘額</div>
                                 <div class="text-3xl font-bold text-gray-800 num-font tracking-tight">$ {{ formatNumber(monthEndBalance) }}</div>
-                                <div class="mt-4 flex items-center gap-2 text-xs text-gray-400">
-                                    <span :class="isCheckedThisMonth ? 'text-green-500' : 'text-gray-300'">
-                                        <i class="fa-solid fa-circle-check mr-1"></i>{{ isCheckedThisMonth ? '本月已核對' : '尚未核對' }}
-                                    </span>
+                                <div class="mt-4 text-xs text-gray-400">
+                                    <span :class="isCheckedThisMonth ? 'text-green-500' : 'text-gray-300'"><i class="fa-solid fa-circle-check mr-1"></i>{{ isCheckedThisMonth ? '本月已核對' : '尚未核對' }}</span>
                                 </div>
                             </div>
-
                             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2 flex justify-around items-center">
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-400 mb-1">上月結餘</div>
-                                    <div class="text-xl font-bold text-gray-600 num-font">$ {{ formatNumber(monthStartBalance) }}</div>
-                                </div>
+                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">上月結餘</div><div class="text-xl font-bold text-gray-600 num-font">$ {{ formatNumber(monthStartBalance) }}</div></div>
                                 <div class="h-10 w-px bg-gray-200"></div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-400 mb-1">本月總收入</div>
-                                    <div class="text-xl font-bold text-[#95B8A6] num-font">+ {{ formatNumber(monthTotalIncome) }}</div>
-                                </div>
+                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">本月收入</div><div class="text-xl font-bold text-[#95B8A6] num-font">+ {{ formatNumber(monthTotalIncome) }}</div></div>
                                 <div class="h-10 w-px bg-gray-200"></div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-400 mb-1">本月總支出</div>
-                                    <div class="text-xl font-bold text-[#D4A5A5] num-font">- {{ formatNumber(monthTotalExpense) }}</div>
-                                </div>
-                                <div class="h-10 w-px bg-gray-200"></div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-400 mb-1">本月淨利</div>
-                                    <div :class="['text-xl font-bold num-font', monthNetIncome >= 0 ? 'text-[#7B8FA1]' : 'text-[#D4A5A5]']">
-                                        {{ monthNetIncome >= 0 ? '+' : '' }}{{ formatNumber(monthNetIncome) }}
-                                    </div>
-                                </div>
+                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">本月支出</div><div class="text-xl font-bold text-[#D4A5A5] num-font">- {{ formatNumber(monthTotalExpense) }}</div></div>
                             </div>
                         </div>
 
                         <div v-if="isAdmin" class="bg-white p-4 rounded-2xl shadow-sm border border-blue-50 flex flex-wrap items-center gap-3">
-                            <div class="bg-blue-50 text-[#7B8FA1] px-3 py-2 rounded-lg font-bold text-sm flex items-center">
-                                <i class="fa-solid fa-pen-to-square mr-2"></i> 記帳
-                            </div>
-                            
+                            <div class="bg-blue-50 text-[#7B8FA1] px-3 py-2 rounded-lg font-bold text-sm flex items-center"><i class="fa-solid fa-pen-to-square mr-2"></i> 記帳</div>
                             <input type="date" v-model="form.date" class="input-std w-auto font-medium text-gray-600 cursor-pointer">
-                            
                             <div class="flex bg-gray-100 p-1 rounded-lg">
-                                <button @click="form.type = 'expense'" :class="['px-4 py-1.5 rounded-md text-sm font-bold transition', form.type === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400']">支</button>
-                                <button @click="form.type = 'income'" :class="['px-4 py-1.5 rounded-md text-sm font-bold transition', form.type === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400']">收</button>
+                                <button @click="form.type = 'expense'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400']">支</button>
+                                <button @click="form.type = 'income'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400']">收</button>
                             </div>
-
+                            <input type="text" v-model="form.item" placeholder="備註事項 (例如: 廠商貨款)..." class="input-std flex-[2]" @keyup.enter="focusAmount">
                             <div class="relative w-32">
                                 <span class="absolute left-3 top-2.5 text-gray-400 text-sm">$</span>
-                                <input type="number" v-model.number="form.amount" placeholder="金額" class="input-std pl-6 font-bold num-font text-lg" @keyup.enter="submitForm">
+                                <input ref="amountInput" type="number" v-model.number="form.amount" placeholder="金額" class="input-std pl-6 font-bold num-font text-lg" @keyup.enter="submitForm">
                             </div>
-
-                            <select v-model="form.category" class="input-std w-40 cursor-pointer">
-                                <option v-for="cat in availableCategories" :value="cat">{{ cat }}</option>
-                                <option value="custom">＋ 新增類別...</option>
-                            </select>
-
-                            <input v-if="form.category === 'custom'" type="text" v-model="customCategory" placeholder="輸入新類別..." class="input-std w-32 border-[#7B8FA1]">
-
-                            <input type="text" v-model="form.item" placeholder="備註事項..." class="input-std flex-1" @keyup.enter="submitForm">
-
+                            <div class="relative w-40">
+                                <select v-model="form.category" class="input-std appearance-none cursor-pointer">
+                                    <option v-for="cat in finalCategories" :value="cat">{{ cat }}</option>
+                                </select>
+                                <i class="fa-solid fa-caret-down absolute right-3 top-3.5 text-gray-400 pointer-events-none"></i>
+                            </div>
                             <button @click="submitForm" :disabled="isSubmitting" class="w-12 h-10 bg-[#7B8FA1] hover:bg-[#56697A] text-white rounded-lg shadow-md active:scale-95 transition flex items-center justify-center">
                                 <i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin"></i>
                                 <i v-else class="fa-solid fa-plus"></i>
@@ -224,8 +157,8 @@
                                     <tr>
                                         <th class="p-4 w-32">日期</th>
                                         <th class="p-4 w-24">類型</th>
-                                        <th class="p-4 w-32">類別</th>
                                         <th class="p-4">項目說明</th>
+                                        <th class="p-4 w-48">類別</th>
                                         <th class="p-4 text-right w-40">金額</th>
                                         <th v-if="isAdmin" class="p-4 w-16"></th>
                                     </tr>
@@ -238,8 +171,10 @@
                                                 {{ entry.type === 'income' ? '收入' : '支出' }}
                                             </span>
                                         </td>
-                                        <td class="p-4 text-gray-600 text-sm">{{ entry.category }}</td>
                                         <td class="p-4 text-gray-800 font-bold text-sm">{{ entry.item }}</td>
+                                        <td class="p-4 text-gray-600 text-sm">
+                                            <span class="bg-gray-100 px-2 py-1 rounded">{{ entry.category }}</span>
+                                        </td>
                                         <td :class="['p-4 text-right font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
                                             {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
                                         </td>
@@ -248,10 +183,7 @@
                                         </td>
                                     </tr>
                                     <tr v-if="filteredEntries.length === 0">
-                                        <td colspan="6" class="p-12 text-center text-gray-400">
-                                            <div class="text-4xl mb-3 opacity-30"><i class="fa-solid fa-inbox"></i></div>
-                                            本月尚無紀錄
-                                        </td>
+                                        <td colspan="6" class="p-8 text-center text-gray-400">尚無符合條件的紀錄</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -262,24 +194,54 @@
         </template>
 
         <div v-if="showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div class="bg-white w-[400px] rounded-3xl p-8 shadow-2xl animate-[fadeIn_0.2s_ease-out]">
+            <div class="bg-white w-[400px] rounded-3xl p-8 shadow-2xl">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-gray-700">編輯紀錄</h3>
-                    <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+                    <button @click="showEditModal = false" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
                 </div>
                 <div class="space-y-4">
                     <div class="flex bg-gray-100 p-1 rounded-xl">
-                        <button @click="form.type = 'expense'" :class="['flex-1 py-2.5 rounded-lg text-sm font-bold transition', form.type === 'expense' ? 'bg-white shadow text-[#D4A5A5]' : 'text-gray-400']">支出</button>
-                        <button @click="form.type = 'income'" :class="['flex-1 py-2.5 rounded-lg text-sm font-bold transition', form.type === 'income' ? 'bg-white shadow text-[#95B8A6]' : 'text-gray-400']">收入</button>
+                        <button @click="form.type = 'expense'" :class="['flex-1 py-2 rounded-lg text-sm font-bold', form.type === 'expense' ? 'bg-white shadow text-[#D4A5A5]' : 'text-gray-400']">支出</button>
+                        <button @click="form.type = 'income'" :class="['flex-1 py-2 rounded-lg text-sm font-bold', form.type === 'income' ? 'bg-white shadow text-[#95B8A6]' : 'text-gray-400']">收入</button>
                     </div>
                     <div><label class="text-xs text-gray-400 ml-1">日期</label><input type="date" v-model="form.date" class="input-std"></div>
-                    <div><label class="text-xs text-gray-400 ml-1">金額</label><input type="number" v-model.number="form.amount" class="input-std font-bold text-lg"></div>
-                    <div><label class="text-xs text-gray-400 ml-1">類別</label><select v-model="form.category" class="input-std"><option v-for="cat in availableCategories" :value="cat">{{ cat }}</option></select></div>
                     <div><label class="text-xs text-gray-400 ml-1">備註</label><input type="text" v-model="form.item" class="input-std"></div>
+                    <div><label class="text-xs text-gray-400 ml-1">金額</label><input type="number" v-model.number="form.amount" class="input-std font-bold text-lg"></div>
+                    <div><label class="text-xs text-gray-400 ml-1">類別</label><select v-model="form.category" class="input-std"><option v-for="cat in finalCategories" :value="cat">{{ cat }}</option></select></div>
                 </div>
                 <div class="flex gap-4 mt-8">
-                    <button @click="deleteCurrentEntry" class="flex-1 py-3 bg-red-50 text-red-400 rounded-xl font-bold hover:bg-red-100 transition">刪除</button>
-                    <button @click="submitEdit" class="flex-[2] py-3 bg-[#7B8FA1] text-white rounded-xl font-bold hover:bg-[#56697A] transition shadow-lg shadow-blue-100">儲存修改</button>
+                    <button @click="deleteCurrentEntry" class="flex-1 py-3 bg-red-50 text-red-400 rounded-xl font-bold">刪除</button>
+                    <button @click="submitEdit" class="flex-[2] py-3 bg-[#7B8FA1] text-white rounded-xl font-bold">儲存</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div class="bg-white w-[400px] rounded-3xl p-8 shadow-2xl h-[500px] flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-gray-700">系統設定</h3>
+                    <button @click="showSettings = false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="overflow-y-auto flex-1 pr-2">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">初始金額</h4>
+                    <div class="space-y-3 mb-6">
+                        <div><label class="text-xs text-gray-400 ml-1">現金初始</label><input type="number" v-model.number="settings.cashInitial" @change="saveSettings" class="input-std font-bold"></div>
+                        <div><label class="text-xs text-gray-400 ml-1">帳戶初始</label><input type="number" v-model.number="settings.accountInitial" @change="saveSettings" class="input-std font-bold"></div>
+                    </div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">類別管理</h4>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" v-model="newCategoryName" placeholder="輸入新類別..." class="input-std text-sm" @keyup.enter="addCategory">
+                        <button @click="addCategory" class="bg-[#7B8FA1] text-white px-3 rounded-lg"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div class="space-y-2">
+                        <div v-for="(cat, index) in settings.customCategories" :key="index" class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg text-sm group">
+                            <span>{{ cat }}</span>
+                            <button @click="removeCategory(index)" class="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-gray-100 mt-4">
+                    <button @click="showSettings = false" class="w-full py-3 bg-gray-800 text-white rounded-xl font-bold">完成</button>
                 </div>
             </div>
         </div>
@@ -291,35 +253,14 @@
                     <button @click="showReconcileModal = false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="bg-gray-50 p-6 rounded-2xl mb-6 text-center border border-gray-100">
-                    <div class="text-xs text-gray-400 uppercase tracking-wide">目前系統餘額</div>
+                    <div class="text-xs text-gray-400 uppercase">系統餘額</div>
                     <div class="text-3xl font-bold num-font text-gray-800 mt-2">$ {{ formatNumber(monthEndBalance) }}</div>
                 </div>
-                <div class="space-y-3 mb-6">
-                    <p class="text-xs text-gray-400 pl-1">近期核對紀錄</p>
-                    <div class="max-h-32 overflow-y-auto space-y-2 pr-2">
-                        <div v-for="rec in recentReconciliations" :key="rec.id" class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl text-xs shadow-sm">
-                            <span class="text-gray-500">{{ formatDateFull(rec.date) }}</span>
-                            <span class="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded-md"><i class="fa-solid fa-check mr-1"></i>OK</span>
-                        </div>
-                    </div>
-                </div>
-                <button @click="addReconciliation" :disabled="isCheckedThisMonth" :class="['w-full py-3.5 rounded-xl font-bold text-white transition shadow-lg', isCheckedThisMonth ? 'bg-gray-300 cursor-not-allowed shadow-none' : 'bg-[#95B8A6] hover:bg-[#7DA690] shadow-green-100']">
-                    {{ isCheckedThisMonth ? '本月已完成核對' : '確認金額無誤，核對！' }}
+                <button @click="addReconciliation" :disabled="isCheckedThisMonth" :class="['w-full py-3.5 rounded-xl font-bold text-white transition', isCheckedThisMonth ? 'bg-gray-300' : 'bg-[#95B8A6]']">
+                    {{ isCheckedThisMonth ? '本月已核對' : '確認無誤，核對！' }}
                 </button>
             </div>
         </div>
-
-        <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div class="bg-white w-[350px] rounded-3xl p-8 shadow-2xl">
-                <h3 class="text-lg font-bold text-gray-700 mb-6 text-center">初始金額設定</h3>
-                <div class="space-y-5 mb-8">
-                    <div><label class="text-xs text-gray-400 ml-1 mb-1 block">現金初始餘額</label><input type="number" v-model.number="settings.cashInitial" @change="saveSettings" class="input-std font-bold text-lg"></div>
-                    <div><label class="text-xs text-gray-400 ml-1 mb-1 block">帳戶初始餘額</label><input type="number" v-model.number="settings.accountInitial" @change="saveSettings" class="input-std font-bold text-lg"></div>
-                </div>
-                <button @click="showSettings = false" class="w-full py-3.5 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-bold transition">完成設定</button>
-            </div>
-        </div>
-
     </div>
 
     <script type="module">
@@ -327,9 +268,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ============================================
-        // ▼▼▼ Firebase Config (維持你的設定) ▼▼▼
-        // ============================================
         const firebaseConfig = {
             apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
             authDomain: "ossen-money.firebaseapp.com",
@@ -339,7 +277,6 @@
             appId: "1:910508291691:web:cf44c7a77a5ea9e878232e",
             measurementId: "G-H1PR0LZZ4Q"
         };
-        // ============================================
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -354,59 +291,50 @@
                 const currentTab = ref('cash');
                 const currentMonth = ref(new Date().toISOString().slice(0, 7));
                 const transactions = ref([]);
-                const settings = ref({ cashInitial: 0, accountInitial: 0 });
+                const settings = ref({ cashInitial: 0, accountInitial: 0, customCategories: [] });
                 const reconciliations = ref([]);
                 const searchQuery = ref('');
+                const filterType = ref('all'); // 篩選狀態 'all', 'income', 'expense'
+                const amountInput = ref(null);
 
-                // UI 狀態
                 const showSettings = ref(false);
                 const showReconcileModal = ref(false);
                 const showEditModal = ref(false);
                 const isSubmitting = ref(false);
                 const editingId = ref(null);
+                const newCategoryName = ref('');
 
-                // 表單 (新增/編輯共用)
-                const form = ref({
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'expense',
-                    amount: '',
-                    category: '其他',
-                    item: ''
-                });
-                const customCategory = ref('');
-                
                 const defaultCategories = ['客戶訂金尾款', '貨款支出', '運費', '雜物支出', '薪資', '其他'];
-                const userCategories = ref(new Set(defaultCategories));
 
-                // 登入邏輯 (PC版: 按 Enter 觸發)
+                const form = ref({ date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' });
+
                 const checkPin = () => {
-                    const val = pinInput.value;
-                    if (val === '671213') setRole('admin');
-                    else if (val === '45688123') setRole('viewer');
-                    else {
-                        loginError.value = true;
-                        pinInput.value = '';
-                        setTimeout(() => loginError.value = false, 1500);
-                    }
+                    if (pinInput.value === '671213') setRole('admin');
+                    else if (pinInput.value === '45688123') setRole('viewer');
+                    else { loginError.value = true; pinInput.value = ''; setTimeout(()=>loginError.value=false, 1500); }
                 };
                 const setRole = (r) => { role.value = r; localStorage.setItem('ln_role', r); pinInput.value = ''; };
-                const logout = () => { role.value = null; localStorage.removeItem('ln_role'); pinInput.value = ''; };
+                const logout = () => { role.value = null; localStorage.removeItem('ln_role'); };
 
-                // Firebase Sync
                 onMounted(() => {
                     onSnapshot(query(collection(db, "transactions"), orderBy("date", "desc")), (snap) => {
-                        let temp = []; let cats = new Set(defaultCategories);
-                        snap.forEach(d => {
-                            const data = d.data();
-                            temp.push({ id: d.id, ...data });
-                            if(data.category) cats.add(data.category);
+                        let temp = [];
+                        snap.forEach(d => temp.push({ id: d.id, ...d.data() }));
+                        temp.sort((a, b) => {
+                            if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
+                            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
                         });
                         transactions.value = temp;
-                        userCategories.value = cats;
                     });
                     onSnapshot(doc(db, "settings", "general"), (d) => {
-                        if(d.exists()) settings.value = d.data();
-                        else setDoc(d.ref, { cashInitial: 0, accountInitial: 0 });
+                        if(d.exists()) {
+                            const data = d.data();
+                            settings.value = { 
+                                cashInitial: data.cashInitial || 0,
+                                accountInitial: data.accountInitial || 0,
+                                customCategories: data.customCategories || [] 
+                            };
+                        } else setDoc(d.ref, settings.value);
                     });
                     onSnapshot(query(collection(db, "reconciliations"), orderBy("date", "desc")), (snap) => {
                         let temp = []; snap.forEach(d => temp.push({ id: d.id, ...d.data() }));
@@ -414,111 +342,81 @@
                     });
                 });
 
-                // 計算邏輯
                 const filteredEntries = computed(() => {
                     return transactions.value.filter(t => {
                         if (t.ledger !== currentTab.value) return false;
                         if (!t.date.startsWith(currentMonth.value)) return false;
+                        // 類型篩選
+                        if (filterType.value === 'income' && t.type !== 'income') return false;
+                        if (filterType.value === 'expense' && t.type !== 'expense') return false;
+                        // 搜尋
                         if (searchQuery.value) {
                             const q = searchQuery.value.toLowerCase();
-                            return t.item.includes(q) || t.amount.toString().includes(q) || t.category.includes(q);
+                            return t.item.toLowerCase().includes(q) || t.amount.toString().includes(q);
                         }
                         return true;
                     });
                 });
-                
-                const monthStartBalance = computed(() => {
-                    const initial = currentTab.value === 'cash' ? settings.value.cashInitial : settings.value.accountInitial;
-                    const prev = transactions.value.filter(t => t.ledger === currentTab.value && t.date < (currentMonth.value + "-01"));
-                    const income = prev.filter(t => t.type === 'income').reduce((a,b)=>a+b.amount,0);
-                    const expense = prev.filter(t => t.type === 'expense').reduce((a,b)=>a+b.amount,0);
-                    return (initial||0) + income - expense;
-                });
 
-                // 新增：月總收/總支
+                const monthStartBalance = computed(() => {
+                    const init = currentTab.value === 'cash' ? settings.value.cashInitial : settings.value.accountInitial;
+                    const prev = transactions.value.filter(t => t.ledger === currentTab.value && t.date < currentMonth.value + "-01");
+                    return (init||0) + prev.reduce((a,b) => a + (b.type==='income'?b.amount:-b.amount), 0);
+                });
                 const monthTotalIncome = computed(() => filteredEntries.value.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0));
                 const monthTotalExpense = computed(() => filteredEntries.value.filter(t=>t.type==='expense').reduce((a,b)=>a+b.amount,0));
+                const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
                 
-                const monthNetIncome = computed(() => monthTotalIncome.value - monthTotalExpense.value);
-                const monthEndBalance = computed(() => monthStartBalance.value + monthNetIncome.value);
-                const availableCategories = computed(() => Array.from(userCategories.value));
-
+                const finalCategories = computed(() => [...defaultCategories, ...settings.value.customCategories]);
                 const recentReconciliations = computed(() => reconciliations.value.filter(r => r.ledger === currentTab.value));
-                const isCheckedThisMonth = computed(() => {
-                    if(recentReconciliations.value.length === 0) return false;
-                    const recDate = new Date(recentReconciliations.value[0].date);
-                    const today = new Date();
-                    return recDate.getMonth() === today.getMonth() && recDate.getFullYear() === today.getFullYear();
-                });
+                const isCheckedThisMonth = computed(() => recentReconciliations.value.length > 0 && new Date(recentReconciliations.value[0].date).getMonth() === new Date().getMonth());
 
-                // Actions
                 const changeMonth = (offset) => {
                     const d = new Date(currentMonth.value + "-01");
                     d.setMonth(d.getMonth() + offset);
                     currentMonth.value = d.toISOString().slice(0, 7);
                 };
 
-                const submitForm = async () => {
-                    if (!form.value.item || !form.value.amount) return; // 移除 alert，改為靜默
-                    isSubmitting.value = true;
-                    let cat = form.value.category === 'custom' ? customCategory.value : form.value.category;
-                    if(!cat) { isSubmitting.value = false; return; }
+                const focusAmount = () => amountInput.value.focus();
 
-                    const payload = { ...form.value, category: cat, ledger: currentTab.value, amount: Number(form.value.amount) };
-                    try {
-                        await addDoc(collection(db, "transactions"), { ...payload, createdAt: new Date() });
-                        // 快速連續記帳：清空金額與備註，保留日期與類別
-                        form.value.amount = '';
-                        form.value.item = '';
-                        customCategory.value = '';
-                    } catch(e) { alert(e.message); }
+                const submitForm = async () => {
+                    if (!form.value.item || !form.value.amount) return;
+                    isSubmitting.value = true;
+                    await addDoc(collection(db, "transactions"), { ...form.value, ledger: currentTab.value, amount: Number(form.value.amount), createdAt: new Date() });
+                    form.value.amount = ''; form.value.item = '';
                     isSubmitting.value = false;
                 };
 
-                const handleEntryClick = (entry) => {
-                    if(!isAdmin.value) return;
-                    editingId.value = entry.id;
-                    form.value = { ...entry }; // Note: 這裡編輯會暫時覆蓋 Quick Add 的 form，但關閉後會重置
-                    showEditModal.value = true;
+                const addCategory = async () => {
+                    if(!newCategoryName.value) return;
+                    settings.value.customCategories.push(newCategoryName.value);
+                    await saveSettings();
+                    newCategoryName.value = '';
                 };
-                
-                const closeEditModal = () => {
-                    showEditModal.value = false;
-                    // 重置 Quick Add 表單
-                    form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' };
-                };
-                
-                const submitEdit = async () => {
-                    await updateDoc(doc(db, "transactions", editingId.value), form.value);
-                    closeEditModal();
-                };
-                const deleteCurrentEntry = async () => {
-                    if(confirm("確定刪除此紀錄？")) {
-                        await deleteDoc(doc(db, "transactions", editingId.value));
-                        closeEditModal();
+                const removeCategory = async (index) => {
+                    if(confirm("刪除此類別？")) {
+                        settings.value.customCategories.splice(index, 1);
+                        await saveSettings();
                     }
                 };
 
+                const handleEntryClick = (entry) => { if(isAdmin.value) { editingId.value = entry.id; form.value = {...entry}; showEditModal.value = true; }};
+                const submitEdit = async () => { await updateDoc(doc(db, "transactions", editingId.value), form.value); showEditModal.value = false; form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; };
+                const deleteCurrentEntry = async () => { if(confirm("刪除？")) await deleteDoc(doc(db, "transactions", editingId.value)); showEditModal.value = false; };
                 const saveSettings = async () => await setDoc(doc(db, "settings", "general"), settings.value);
-                const addReconciliation = async () => {
-                    if(!isAdmin.value) return;
-                    await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), ledger: currentTab.value, amount: monthEndBalance.value, checker: 'admin' });
-                };
-
+                const addReconciliation = async () => { if(!isAdmin.value) return; await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), ledger: currentTab.value, amount: monthEndBalance.value }); };
                 const formatNumber = (num) => new Intl.NumberFormat().format(num);
                 const formatDateShort = (str) => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; };
-                const formatDateFull = (str) => { const d = new Date(str); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; };
 
                 return {
                     role, isAdmin, pinInput, loginError, checkPin, logout,
                     currentTab, currentMonth, filteredEntries, 
-                    monthStartBalance, monthTotalIncome, monthTotalExpense, monthNetIncome, monthEndBalance,
-                    form, customCategory, availableCategories, searchQuery,
+                    monthStartBalance, monthTotalIncome, monthTotalExpense, monthEndBalance,
+                    form, settings, searchQuery, amountInput, filterType,
                     showSettings, showReconcileModal, showEditModal, isSubmitting,
-                    settings, recentReconciliations, isCheckedThisMonth,
-                    changeMonth, submitForm, saveSettings, addReconciliation,
-                    handleEntryClick, closeEditModal, submitEdit, deleteCurrentEntry,
-                    formatNumber, formatDateShort, formatDateFull
+                    finalCategories, newCategoryName, isCheckedThisMonth,
+                    changeMonth, submitForm, focusAmount, handleEntryClick, submitEdit, deleteCurrentEntry, saveSettings, addReconciliation, addCategory, removeCategory,
+                    formatNumber, formatDateShort
                 };
             }
         }).mount('#app');
