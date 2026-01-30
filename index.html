@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Little Nook 會計系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #1d4ed8; font-weight: bold; background-color: #eff6ff; }
+        .tab-inactive { color: #6b7280; background-color: #ffffff; }
+        .num-font { font-family: 'Courier New', monospace; font-weight: 700; }
+        
+        /* 手機版優化 */
+        input, select, button { touch-action: manipulation; }
+    </style>
+</head>
+<body>
+    <div id="app" class="max-w-2xl mx-auto min-h-screen flex flex-col bg-gray-50">
+        
+        <header class="bg-white p-4 shadow-sm sticky top-0 z-10">
+            <div class="flex justify-between items-center mb-2">
+                <h1 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-calculator text-blue-600 mr-2"></i>Little Nook 記帳</h1>
+                <button @click="exportData" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> 備份
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-3 border border-gray-200 rounded-lg overflow-hidden text-sm">
+                <button @click="currentTab = 'cash'" :class="['py-3 text-center transition', currentTab === 'cash' ? 'tab-active' : 'tab-inactive']">
+                    現金
+                </button>
+                <button @click="currentTab = 'account'" :class="['py-3 text-center transition', currentTab === 'account' ? 'tab-active' : 'tab-inactive']">
+                    帳戶
+                </button>
+                <button @click="currentTab = 'report'" :class="['py-3 text-center transition', currentTab === 'report' ? 'tab-active' : 'tab-inactive']">
+                    報表
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 pb-24">
+            
+            <div v-if="currentTab !== 'report'" class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-blue-100">
+                <div class="flex justify-between items-end mb-4">
+                    <h3 class="font-bold text-gray-700">
+                        {{ currentTab === 'cash' ? '現金' : '銀行帳戶' }}收支
+                    </h3>
+                    <span class="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 font-bold">
+                        餘額: <span class="num-font text-lg ml-1">${{ formatNumber(currentBalance) }}</span>
+                    </span>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <input type="date" v-model="newEntry.date" class="w-1/3 border rounded-lg p-2 text-sm bg-gray-50">
+                        <select v-model="newEntry.category" class="w-2/3 border rounded-lg p-2 text-sm bg-gray-50">
+                            <option value="客戶訂金尾款">客戶訂金尾款</option>
+                            <option value="貨款支出">貨款支出</option>
+                            <option value="運費">運費</option>
+                            <option value="雜物支出">雜物支出 (水電/維修)</option>
+                            <option value="薪資">薪資/領錢</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+
+                    <input type="text" v-model="newEntry.item" placeholder="事項說明 (例如: 廠商名稱)" class="w-full border rounded-lg p-2 text-base focus:ring-2 focus:ring-blue-500 outline-none">
+                    
+                    <div class="flex gap-2">
+                        <div class="flex-1 relative">
+                            <span class="absolute left-3 top-2 text-gray-400">$</span>
+                            <input type="number" inputmode="numeric" v-model.number="newEntry.amount" placeholder="金額" class="w-full border rounded-lg p-2 pl-6 text-base font-bold text-gray-700 outline-none">
+                        </div>
+                        <div class="flex rounded-lg overflow-hidden border border-gray-200">
+                            <button @click="newEntry.type = 'income'" :class="['px-4 py-2 text-sm font-bold', newEntry.type === 'income' ? 'bg-green-500 text-white' : 'bg-white text-gray-500']">收</button>
+                            <button @click="newEntry.type = 'expense'" :class="['px-4 py-2 text-sm font-bold', newEntry.type === 'expense' ? 'bg-red-500 text-white' : 'bg-white text-gray-500']">支</button>
+                        </div>
+                    </div>
+                    
+                    <button @click="addEntry" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md active:scale-95 transition">
+                        <i class="fa-solid fa-plus"></i> 新增紀錄
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="currentTab !== 'report'" class="space-y-3">
+                <div v-for="entry in sortedEntries" :key="entry.id" class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs text-gray-400 bg-gray-100 px-1.5 rounded">{{ formatDateShort(entry.date) }}</span>
+                            <span class="text-xs text-blue-500 border border-blue-100 px-1.5 rounded">{{ entry.category }}</span>
+                        </div>
+                        <div class="font-bold text-gray-800">{{ entry.item }}</div>
+                        <div class="text-xs text-gray-400">結餘: {{ formatNumber(entry.balance) }}</div>
+                    </div>
+                    <div class="text-right">
+                        <div :class="['text-lg font-bold num-font', entry.type === 'income' ? 'text-green-600' : 'text-red-600']">
+                            {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
+                        </div>
+                        <button @click="deleteEntry(entry.id)" class="text-xs text-gray-300 hover:text-red-500 mt-1 p-1">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div v-if="sortedEntries.length === 0" class="text-center text-gray-400 py-10">
+                    <i class="fa-solid fa-clipboard-list text-4xl mb-2 opacity-30"></i>
+                    <p>尚無紀錄</p>
+                </div>
+            </div>
+
+            <div v-if="currentTab === 'report'" class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+                    <h2 class="font-bold text-gray-700">月結報表</h2>
+                    <input type="month" v-model="reportMonth" class="bg-white border rounded px-2 py-1 text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 text-center text-sm border-b">
+                    <div class="p-3 border-r border-b">
+                        <div class="text-gray-500 text-xs">現金收入</div>
+                        <div class="text-green-600 font-bold">{{ formatNumber(stats.cashIncome) }}</div>
+                    </div>
+                    <div class="p-3 border-b">
+                        <div class="text-gray-500 text-xs">現金支出</div>
+                        <div class="text-red-600 font-bold">{{ formatNumber(stats.cashExpense) }}</div>
+                    </div>
+                    <div class="p-3 border-r bg-red-50">
+                        <div class="text-gray-500 text-xs">現金實收</div>
+                        <div class="text-red-700 font-bold num-font text-base">{{ formatNumber(stats.cashNet) }}</div>
+                    </div>
+                    <div class="p-3 bg-blue-50">
+                        <div class="text-gray-500 text-xs">帳戶實收</div>
+                        <div class="text-blue-700 font-bold num-font text-base">{{ formatNumber(stats.accountNet) }}</div>
+                    </div>
+                </div>
+                <div class="p-4 bg-green-50 text-center border-b-4 border-green-200">
+                    <div class="text-gray-600 text-xs mb-1">本月總實收 (現金+帳戶)</div>
+                    <div class="text-2xl font-bold text-green-800 num-font">${{ formatNumber(stats.totalNet) }}</div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-gray-100 text-gray-500">
+                            <tr>
+                                <th class="p-2 whitespace-nowrap">日期</th>
+                                <th class="p-2">收/支</th>
+                                <th class="p-2">項目</th>
+                                <th class="p-2 text-right">金額</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            <tr v-for="t in monthlyEntries" :key="t.id">
+                                <td class="p-2 text-gray-500">{{ formatDateShort(t.date) }}</td>
+                                <td class="p-2">
+                                    <span :class="['px-1.5 py-0.5 rounded text-[10px]', t.ledger === 'cash' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600']">
+                                        {{ t.ledger === 'cash' ? '現' : '帳' }}
+                                    </span>
+                                </td>
+                                <td class="p-2">
+                                    <div class="font-medium text-gray-700">{{ t.item }}</div>
+                                    <div class="text-[10px] text-gray-400">{{ t.category }}</div>
+                                </td>
+                                <td :class="['p-2 text-right font-bold num-font', t.type === 'income' ? 'text-green-600' : 'text-red-600']">
+                                    {{ t.type === 'income' ? '' : '-' }}{{ formatNumber(t.amount) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const currentTab = ref('cash');
+                const transactions = ref([]);
+                
+                // 預設今天日期
+                const today = new Date().toISOString().split('T')[0];
+                const newEntry = ref({
+                    date: today,
+                    item: '',
+                    type: 'income',
+                    amount: '',
+                    category: '客戶訂金尾款',
+                    ledger: 'cash'
+                });
+                
+                const reportMonth = ref(today.slice(0, 7)); // YYYY-MM
+
+                // 讀取紀錄
+                onMounted(() => {
+                    const saved = localStorage.getItem('ln_accounting_v1');
+                    if (saved) transactions.value = JSON.parse(saved);
+                });
+
+                // 自動存檔
+                watch(transactions, (newVal) => {
+                    localStorage.setItem('ln_accounting_v1', JSON.stringify(newVal));
+                }, { deep: true });
+
+                const addEntry = () => {
+                    if (!newEntry.value.item || !newEntry.value.amount) return alert("請輸入事項和金額");
+                    
+                    newEntry.value.ledger = currentTab.value;
+                    transactions.value.push({
+                        id: Date.now(),
+                        ...newEntry.value
+                    });
+                    
+                    // 重置表單但保留日期與分類
+                    newEntry.value.item = '';
+                    newEntry.value.amount = '';
+                };
+
+                const deleteEntry = (id) => {
+                    if(confirm('確定刪除？')) {
+                        transactions.value = transactions.value.filter(t => t.id !== id);
+                    }
+                };
+
+                // 計算餘額與排序
+                const sortedEntries = computed(() => {
+                    // 1. 篩選當前頁籤 (現金 or 帳戶)
+                    let list = transactions.value.filter(t => t.ledger === currentTab.value);
+                    
+                    // 2. 依照日期排序 (舊 -> 新) 計算餘額
+                    list.sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+                    
+                    let balance = 0;
+                    const listWithBalance = list.map(t => {
+                        if (t.type === 'income') balance += t.amount;
+                        else balance -= t.amount;
+                        return { ...t, balance };
+                    });
+
+                    // 3. 反轉陣列 (新 -> 舊) 讓最新的顯示在最上面，方便手機查看
+                    return listWithBalance.reverse();
+                });
+
+                const currentBalance = computed(() => {
+                    // 因為 sortedEntries 已經反轉，餘額要看第一筆(原本的最後一筆)
+                    return sortedEntries.value.length > 0 ? sortedEntries.value[0].balance : 0;
+                });
+
+                // 報表邏輯
+                const monthlyEntries = computed(() => {
+                    return transactions.value.filter(t => t.date.startsWith(reportMonth.value))
+                        .sort((a, b) => new Date(a.date) - new Date(b.date));
+                });
+
+                const stats = computed(() => {
+                    const list = monthlyEntries.value;
+                    const cashList = list.filter(t => t.ledger === 'cash');
+                    const accountList = list.filter(t => t.ledger === 'account');
+
+                    const sum = (arr, type) => arr.filter(t => t.type === type).reduce((acc, t) => acc + t.amount, 0);
+
+                    const cashIncome = sum(cashList, 'income');
+                    const cashExpense = sum(cashList, 'expense');
+                    const cashNet = cashIncome - cashExpense;
+
+                    const accountIncome = sum(accountList, 'income');
+                    const accountExpense = sum(accountList, 'expense');
+                    const accountNet = accountIncome - accountExpense;
+
+                    return { 
+                        cashIncome, cashExpense, cashNet, 
+                        accountNet, 
+                        totalNet: cashNet + accountNet 
+                    };
+                });
+
+                // 工具函式
+                const formatNumber = (num) => new Intl.NumberFormat().format(num);
+                const formatDateShort = (str) => {
+                    const d = new Date(str);
+                    return `${d.getMonth()+1}/${d.getDate()}`;
+                };
+                const exportData = () => {
+                    const dataStr = JSON.stringify(transactions.value);
+                    const link = document.createElement('a');
+                    link.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                    link.download = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
+                    link.click();
+                };
+
+                return {
+                    currentTab, newEntry, addEntry, deleteEntry,
+                    sortedEntries, currentBalance,
+                    reportMonth, monthlyEntries, stats,
+                    formatNumber, formatDateShort, exportData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
