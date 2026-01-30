@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Little Nook 會計系統</title>
+    <title>Little Nook 雲端記帳</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
@@ -13,32 +12,28 @@
         .tab-active { border-bottom: 3px solid #3b82f6; color: #1d4ed8; font-weight: bold; background-color: #eff6ff; }
         .tab-inactive { color: #6b7280; background-color: #ffffff; }
         .num-font { font-family: 'Courier New', monospace; font-weight: 700; }
-        
-        /* 手機版優化 */
         input, select, button { touch-action: manipulation; }
+        [v-cloak] { display: none; }
     </style>
 </head>
 <body>
-    <div id="app" class="max-w-2xl mx-auto min-h-screen flex flex-col bg-gray-50">
+    <div id="app" v-cloak class="max-w-2xl mx-auto min-h-screen flex flex-col bg-gray-50">
         
         <header class="bg-white p-4 shadow-sm sticky top-0 z-10">
             <div class="flex justify-between items-center mb-2">
-                <h1 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-calculator text-blue-600 mr-2"></i>Little Nook 記帳</h1>
-                <button @click="exportData" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border">
-                    <i class="fa-solid fa-cloud-arrow-down"></i> 備份
-                </button>
+                <h1 class="text-xl font-bold text-gray-800">
+                    <i class="fa-solid fa-cloud text-blue-600 mr-2"></i>Little Nook 雲端版
+                </h1>
+                <div class="text-xs text-gray-400">
+                    <span v-if="isConnected" class="text-green-500"><i class="fa-solid fa-circle text-[8px] mr-1"></i>已連線</span>
+                    <span v-else class="text-red-500">連線中...</span>
+                </div>
             </div>
             
             <div class="grid grid-cols-3 border border-gray-200 rounded-lg overflow-hidden text-sm">
-                <button @click="currentTab = 'cash'" :class="['py-3 text-center transition', currentTab === 'cash' ? 'tab-active' : 'tab-inactive']">
-                    現金
-                </button>
-                <button @click="currentTab = 'account'" :class="['py-3 text-center transition', currentTab === 'account' ? 'tab-active' : 'tab-inactive']">
-                    帳戶
-                </button>
-                <button @click="currentTab = 'report'" :class="['py-3 text-center transition', currentTab === 'report' ? 'tab-active' : 'tab-inactive']">
-                    報表
-                </button>
+                <button @click="currentTab = 'cash'" :class="['py-3 text-center transition', currentTab === 'cash' ? 'tab-active' : 'tab-inactive']">現金</button>
+                <button @click="currentTab = 'account'" :class="['py-3 text-center transition', currentTab === 'account' ? 'tab-active' : 'tab-inactive']">帳戶</button>
+                <button @click="currentTab = 'report'" :class="['py-3 text-center transition', currentTab === 'report' ? 'tab-active' : 'tab-inactive']">報表</button>
             </div>
         </header>
 
@@ -46,9 +41,7 @@
             
             <div v-if="currentTab !== 'report'" class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-blue-100">
                 <div class="flex justify-between items-end mb-4">
-                    <h3 class="font-bold text-gray-700">
-                        {{ currentTab === 'cash' ? '現金' : '銀行帳戶' }}收支
-                    </h3>
+                    <h3 class="font-bold text-gray-700">{{ currentTab === 'cash' ? '現金' : '銀行帳戶' }}收支</h3>
                     <span class="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 font-bold">
                         餘額: <span class="num-font text-lg ml-1">${{ formatNumber(currentBalance) }}</span>
                     </span>
@@ -80,8 +73,9 @@
                         </div>
                     </div>
                     
-                    <button @click="addEntry" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md active:scale-95 transition">
-                        <i class="fa-solid fa-plus"></i> 新增紀錄
+                    <button @click="addEntry" :disabled="isSubmitting" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg shadow-md active:scale-95 transition">
+                        <i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin"></i>
+                        <span v-else><i class="fa-solid fa-plus"></i> 新增紀錄</span>
                     </button>
                 </div>
             </div>
@@ -106,8 +100,8 @@
                     </div>
                 </div>
                 <div v-if="sortedEntries.length === 0" class="text-center text-gray-400 py-10">
-                    <i class="fa-solid fa-clipboard-list text-4xl mb-2 opacity-30"></i>
-                    <p>尚無紀錄</p>
+                    <i class="fa-solid fa-cloud text-4xl mb-2 opacity-30"></i>
+                    <p>尚無雲端紀錄</p>
                 </div>
             </div>
 
@@ -116,7 +110,6 @@
                     <h2 class="font-bold text-gray-700">月結報表</h2>
                     <input type="month" v-model="reportMonth" class="bg-white border rounded px-2 py-1 text-sm">
                 </div>
-
                 <div class="grid grid-cols-2 text-center text-sm border-b">
                     <div class="p-3 border-r border-b">
                         <div class="text-gray-500 text-xs">現金收入</div>
@@ -139,7 +132,6 @@
                     <div class="text-gray-600 text-xs mb-1">本月總實收 (現金+帳戶)</div>
                     <div class="text-2xl font-bold text-green-800 num-font">${{ formatNumber(stats.totalNet) }}</div>
                 </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs text-left">
                         <thead class="bg-gray-100 text-gray-500">
@@ -153,36 +145,47 @@
                         <tbody class="divide-y">
                             <tr v-for="t in monthlyEntries" :key="t.id">
                                 <td class="p-2 text-gray-500">{{ formatDateShort(t.date) }}</td>
-                                <td class="p-2">
-                                    <span :class="['px-1.5 py-0.5 rounded text-[10px]', t.ledger === 'cash' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600']">
-                                        {{ t.ledger === 'cash' ? '現' : '帳' }}
-                                    </span>
-                                </td>
-                                <td class="p-2">
-                                    <div class="font-medium text-gray-700">{{ t.item }}</div>
-                                    <div class="text-[10px] text-gray-400">{{ t.category }}</div>
-                                </td>
-                                <td :class="['p-2 text-right font-bold num-font', t.type === 'income' ? 'text-green-600' : 'text-red-600']">
-                                    {{ t.type === 'income' ? '' : '-' }}{{ formatNumber(t.amount) }}
-                                </td>
+                                <td class="p-2"><span :class="['px-1.5 py-0.5 rounded text-[10px]', t.ledger === 'cash' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600']">{{ t.ledger === 'cash' ? '現' : '帳' }}</span></td>
+                                <td class="p-2"><div class="font-medium text-gray-700">{{ t.item }}</div><div class="text-[10px] text-gray-400">{{ t.category }}</div></td>
+                                <td :class="['p-2 text-right font-bold num-font', t.type === 'income' ? 'text-green-600' : 'text-red-600']">{{ t.type === 'income' ? '' : '-' }}{{ formatNumber(t.amount) }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-
         </main>
     </div>
 
-    <script>
-        const { createApp, ref, computed, onMounted, watch } = Vue;
+    <script type="module">
+        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ============================================
+        // ▼▼▼ 你的 Firebase 設定 (已自動填入) ▼▼▼
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
+            authDomain: "ossen-money.firebaseapp.com",
+            projectId: "ossen-money",
+            storageBucket: "ossen-money.firebasestorage.app",
+            messagingSenderId: "910508291691",
+            appId: "1:910508291691:web:cf44c7a77a5ea9e878232e",
+            measurementId: "G-H1PR0LZZ4Q"
+        };
+        // ============================================
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
         createApp({
             setup() {
                 const currentTab = ref('cash');
                 const transactions = ref([]);
+                const isConnected = ref(false);
+                const isSubmitting = ref(false);
                 
-                // 預設今天日期
                 const today = new Date().toISOString().split('T')[0];
                 const newEntry = ref({
                     date: today,
@@ -193,46 +196,59 @@
                     ledger: 'cash'
                 });
                 
-                const reportMonth = ref(today.slice(0, 7)); // YYYY-MM
+                const reportMonth = ref(today.slice(0, 7));
 
-                // 讀取紀錄
+                // 監聽 Firebase 資料庫變化
                 onMounted(() => {
-                    const saved = localStorage.getItem('ln_accounting_v1');
-                    if (saved) transactions.value = JSON.parse(saved);
+                    const q = query(collection(db, "transactions"), orderBy("createdAt", "desc"));
+                    onSnapshot(q, (querySnapshot) => {
+                        let temp = [];
+                        querySnapshot.forEach((doc) => {
+                            temp.push({ id: doc.id, ...doc.data() });
+                        });
+                        transactions.value = temp;
+                        isConnected.value = true;
+                    }, (error) => {
+                        console.error("Firebase 連線失敗:", error);
+                        if (error.code === 'permission-denied') {
+                            alert('連線失敗：權限不足。請確認 Firebase Console 的 Rules 已設為測試模式 (allow read, write: if true)。');
+                        }
+                        isConnected.value = false;
+                    });
                 });
 
-                // 自動存檔
-                watch(transactions, (newVal) => {
-                    localStorage.setItem('ln_accounting_v1', JSON.stringify(newVal));
-                }, { deep: true });
-
-                const addEntry = () => {
+                const addEntry = async () => {
                     if (!newEntry.value.item || !newEntry.value.amount) return alert("請輸入事項和金額");
                     
-                    newEntry.value.ledger = currentTab.value;
-                    transactions.value.push({
-                        id: Date.now(),
-                        ...newEntry.value
-                    });
-                    
-                    // 重置表單但保留日期與分類
-                    newEntry.value.item = '';
-                    newEntry.value.amount = '';
+                    isSubmitting.value = true;
+                    try {
+                        await addDoc(collection(db, "transactions"), {
+                            date: newEntry.value.date,
+                            item: newEntry.value.item,
+                            type: newEntry.value.type,
+                            amount: newEntry.value.amount,
+                            category: newEntry.value.category,
+                            ledger: currentTab.value,
+                            createdAt: serverTimestamp()
+                        });
+                        
+                        newEntry.value.item = '';
+                        newEntry.value.amount = '';
+                    } catch (e) {
+                        alert("新增失敗: " + e.message);
+                    }
+                    isSubmitting.value = false;
                 };
 
-                const deleteEntry = (id) => {
-                    if(confirm('確定刪除？')) {
-                        transactions.value = transactions.value.filter(t => t.id !== id);
+                const deleteEntry = async (id) => {
+                    if(confirm('確定刪除此紀錄？')) {
+                        await deleteDoc(doc(db, "transactions", id));
                     }
                 };
 
-                // 計算餘額與排序
                 const sortedEntries = computed(() => {
-                    // 1. 篩選當前頁籤 (現金 or 帳戶)
                     let list = transactions.value.filter(t => t.ledger === currentTab.value);
-                    
-                    // 2. 依照日期排序 (舊 -> 新) 計算餘額
-                    list.sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+                    list.sort((a, b) => new Date(a.date) - new Date(b.date) || (a.createdAt?.seconds - b.createdAt?.seconds));
                     
                     let balance = 0;
                     const listWithBalance = list.map(t => {
@@ -240,19 +256,15 @@
                         else balance -= t.amount;
                         return { ...t, balance };
                     });
-
-                    // 3. 反轉陣列 (新 -> 舊) 讓最新的顯示在最上面，方便手機查看
                     return listWithBalance.reverse();
                 });
 
                 const currentBalance = computed(() => {
-                    // 因為 sortedEntries 已經反轉，餘額要看第一筆(原本的最後一筆)
                     return sortedEntries.value.length > 0 ? sortedEntries.value[0].balance : 0;
                 });
 
-                // 報表邏輯
                 const monthlyEntries = computed(() => {
-                    return transactions.value.filter(t => t.date.startsWith(reportMonth.value))
+                    return transactions.value.filter(t => t.date && t.date.startsWith(reportMonth.value))
                         .sort((a, b) => new Date(a.date) - new Date(b.date));
                 });
 
@@ -260,43 +272,30 @@
                     const list = monthlyEntries.value;
                     const cashList = list.filter(t => t.ledger === 'cash');
                     const accountList = list.filter(t => t.ledger === 'account');
-
                     const sum = (arr, type) => arr.filter(t => t.type === type).reduce((acc, t) => acc + t.amount, 0);
 
                     const cashIncome = sum(cashList, 'income');
                     const cashExpense = sum(cashList, 'expense');
                     const cashNet = cashIncome - cashExpense;
-
                     const accountIncome = sum(accountList, 'income');
                     const accountExpense = sum(accountList, 'expense');
                     const accountNet = accountIncome - accountExpense;
 
-                    return { 
-                        cashIncome, cashExpense, cashNet, 
-                        accountNet, 
-                        totalNet: cashNet + accountNet 
-                    };
+                    return { cashIncome, cashExpense, cashNet, accountNet, totalNet: cashNet + accountNet };
                 });
 
-                // 工具函式
                 const formatNumber = (num) => new Intl.NumberFormat().format(num);
                 const formatDateShort = (str) => {
+                    if(!str) return '';
                     const d = new Date(str);
                     return `${d.getMonth()+1}/${d.getDate()}`;
-                };
-                const exportData = () => {
-                    const dataStr = JSON.stringify(transactions.value);
-                    const link = document.createElement('a');
-                    link.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataStr);
-                    link.download = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
-                    link.click();
                 };
 
                 return {
                     currentTab, newEntry, addEntry, deleteEntry,
                     sortedEntries, currentBalance,
                     reportMonth, monthlyEntries, stats,
-                    formatNumber, formatDateShort, exportData
+                    formatNumber, formatDateShort, isConnected, isSubmitting
                 };
             }
         }).mount('#app');
