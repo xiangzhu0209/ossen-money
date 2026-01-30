@@ -32,6 +32,12 @@
         .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; transition: 0.2s; outline: none; width: 100%; }
         .input-std:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(123, 143, 161, 0.1); }
 
+        /* 報表表格樣式 */
+        .report-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .report-table tr:last-child td { border-bottom: none; }
+        .report-label { color: #718096; font-size: 0.9rem; }
+        .report-val { font-weight: bold; font-family: 'Varela Round'; text-align: right; }
+
         [v-cloak] { display: none; }
     </style>
 </head>
@@ -74,6 +80,9 @@
                     <div @click="currentTab = 'cash'" :class="['nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet w-5 mr-3 text-center"></i> 現金帳本</div>
                     <div @click="currentTab = 'account'" :class="['nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns w-5 mr-3 text-center"></i> 銀行帳戶</div>
 
+                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">分析</div>
+                    <div @click="showReportModal = true" class="nav-item hover:text-blue-600"><i class="fa-solid fa-chart-pie w-5 mr-3 text-center"></i> 月結報表</div>
+
                     <div v-if="isAdmin">
                         <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">管理</div>
                         <div @click="showReconcileModal = true" class="nav-item hover:text-green-600"><i class="fa-solid fa-clipboard-check w-5 mr-3 text-center"></i> 帳務核對</div>
@@ -98,7 +107,6 @@
                             <button @click="filterType = 'income'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', filterType === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400 hover:text-[#95B8A6]']">只看收入</button>
                             <button @click="filterType = 'expense'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', filterType === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400 hover:text-[#D4A5A5]']">只看支出</button>
                         </div>
-
                         <div class="relative w-64">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-300"></i>
                             <input type="text" v-model="searchQuery" placeholder="搜尋紀錄..." class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-gray-200 transition">
@@ -134,7 +142,7 @@
                                 <button @click="form.type = 'expense'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400']">支</button>
                                 <button @click="form.type = 'income'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400']">收</button>
                             </div>
-                            <input type="text" v-model="form.item" placeholder="備註事項 (例如: 廠商貨款)..." class="input-std flex-[2]" @keyup.enter="focusAmount">
+                            <input ref="itemInput" type="text" v-model="form.item" placeholder="備註事項..." class="input-std flex-[2]" @keyup.enter="focusAmount">
                             <div class="relative w-32">
                                 <span class="absolute left-3 top-2.5 text-gray-400 text-sm">$</span>
                                 <input ref="amountInput" type="number" v-model.number="form.amount" placeholder="金額" class="input-std pl-6 font-bold num-font text-lg" @keyup.enter="submitForm">
@@ -172,9 +180,7 @@
                                             </span>
                                         </td>
                                         <td class="p-4 text-gray-800 font-bold text-sm">{{ entry.item }}</td>
-                                        <td class="p-4 text-gray-600 text-sm">
-                                            <span class="bg-gray-100 px-2 py-1 rounded">{{ entry.category }}</span>
-                                        </td>
+                                        <td class="p-4 text-gray-600 text-sm"><span class="bg-gray-100 px-2 py-1 rounded">{{ entry.category }}</span></td>
                                         <td :class="['p-4 text-right font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
                                             {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
                                         </td>
@@ -192,6 +198,54 @@
                 </div>
             </main>
         </template>
+
+        <div v-if="showReportModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div class="bg-white w-[400px] rounded-3xl p-8 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-700">月結報表 <span class="text-sm font-normal text-gray-400 ml-2">{{ currentMonth }}</span></h3>
+                    <button @click="showReportModal = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                
+                <div class="bg-gray-50 p-6 rounded-2xl mb-6">
+                    <table class="w-full report-table">
+                        <tr>
+                            <td class="report-label">現金總收入</td>
+                            <td class="report-val text-green-600">+ {{ formatNumber(reportStats.cashIncome) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label">現金總支出</td>
+                            <td class="report-val text-red-500">- {{ formatNumber(reportStats.cashExpense) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label font-bold text-gray-700">現金實收 (Cash Net)</td>
+                            <td class="report-val text-gray-800 border-t-2 border-gray-200 pt-2">{{ formatNumber(reportStats.cashNet) }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="bg-blue-50/50 p-6 rounded-2xl mb-6">
+                    <table class="w-full report-table">
+                         <tr>
+                            <td class="report-label">帳戶/陽信收入</td>
+                            <td class="report-val text-blue-600">+ {{ formatNumber(reportStats.accountIncome) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label">帳戶/陽信支出</td>
+                            <td class="report-val text-red-500">- {{ formatNumber(reportStats.accountExpense) }}</td>
+                        </tr>
+                         <tr>
+                            <td class="report-label font-bold text-gray-700">帳戶實收 (Bank Net)</td>
+                            <td class="report-val text-gray-800 border-t-2 border-blue-100 pt-2">{{ formatNumber(reportStats.accountNet) }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="bg-[#7B8FA1] text-white p-5 rounded-2xl flex justify-between items-center shadow-lg shadow-blue-100">
+                    <span class="font-medium">本月總實收 (Total Net)</span>
+                    <span class="text-2xl font-bold num-font">$ {{ formatNumber(reportStats.totalNet) }}</span>
+                </div>
+            </div>
+        </div>
 
         <div v-if="showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
             <div class="bg-white w-[400px] rounded-3xl p-8 shadow-2xl">
@@ -264,7 +318,7 @@
     </div>
 
     <script type="module">
-        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -294,18 +348,19 @@
                 const settings = ref({ cashInitial: 0, accountInitial: 0, customCategories: [] });
                 const reconciliations = ref([]);
                 const searchQuery = ref('');
-                const filterType = ref('all'); // 篩選狀態 'all', 'income', 'expense'
+                const filterType = ref('all'); 
                 const amountInput = ref(null);
+                const itemInput = ref(null); // 備註輸入框的參考
 
                 const showSettings = ref(false);
                 const showReconcileModal = ref(false);
                 const showEditModal = ref(false);
+                const showReportModal = ref(false);
                 const isSubmitting = ref(false);
                 const editingId = ref(null);
                 const newCategoryName = ref('');
 
                 const defaultCategories = ['客戶訂金尾款', '貨款支出', '運費', '雜物支出', '薪資', '其他'];
-
                 const form = ref({ date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' });
 
                 const checkPin = () => {
@@ -346,10 +401,8 @@
                     return transactions.value.filter(t => {
                         if (t.ledger !== currentTab.value) return false;
                         if (!t.date.startsWith(currentMonth.value)) return false;
-                        // 類型篩選
                         if (filterType.value === 'income' && t.type !== 'income') return false;
                         if (filterType.value === 'expense' && t.type !== 'expense') return false;
-                        // 搜尋
                         if (searchQuery.value) {
                             const q = searchQuery.value.toLowerCase();
                             return t.item.toLowerCase().includes(q) || t.amount.toString().includes(q);
@@ -367,6 +420,21 @@
                 const monthTotalExpense = computed(() => filteredEntries.value.filter(t=>t.type==='expense').reduce((a,b)=>a+b.amount,0));
                 const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
                 
+                const reportStats = computed(() => {
+                    const allMonthTrans = transactions.value.filter(t => t.date.startsWith(currentMonth.value));
+                    const cashInc = allMonthTrans.filter(t => t.ledger === 'cash' && t.type === 'income').reduce((a,b)=>a+b.amount,0);
+                    const cashExp = allMonthTrans.filter(t => t.ledger === 'cash' && t.type === 'expense').reduce((a,b)=>a+b.amount,0);
+                    const accInc = allMonthTrans.filter(t => t.ledger === 'account' && t.type === 'income').reduce((a,b)=>a+b.amount,0);
+                    const accExp = allMonthTrans.filter(t => t.ledger === 'account' && t.type === 'expense').reduce((a,b)=>a+b.amount,0);
+                    const cashNet = cashInc - cashExp;
+                    const accountNet = accInc - accExp;
+                    return {
+                        cashIncome: cashInc, cashExpense: cashExp, cashNet: cashNet,
+                        accountIncome: accInc, accountExpense: accExp, accountNet: accountNet,
+                        totalNet: cashNet + accountNet
+                    };
+                });
+
                 const finalCategories = computed(() => [...defaultCategories, ...settings.value.customCategories]);
                 const recentReconciliations = computed(() => reconciliations.value.filter(r => r.ledger === currentTab.value));
                 const isCheckedThisMonth = computed(() => recentReconciliations.value.length > 0 && new Date(recentReconciliations.value[0].date).getMonth() === new Date().getMonth());
@@ -376,29 +444,23 @@
                     d.setMonth(d.getMonth() + offset);
                     currentMonth.value = d.toISOString().slice(0, 7);
                 };
-
                 const focusAmount = () => amountInput.value.focus();
-
+                
                 const submitForm = async () => {
                     if (!form.value.item || !form.value.amount) return;
                     isSubmitting.value = true;
                     await addDoc(collection(db, "transactions"), { ...form.value, ledger: currentTab.value, amount: Number(form.value.amount), createdAt: new Date() });
                     form.value.amount = ''; form.value.item = '';
                     isSubmitting.value = false;
+                    
+                    // 自動對焦回「備註」
+                    nextTick(() => {
+                        if(itemInput.value) itemInput.value.focus();
+                    });
                 };
 
-                const addCategory = async () => {
-                    if(!newCategoryName.value) return;
-                    settings.value.customCategories.push(newCategoryName.value);
-                    await saveSettings();
-                    newCategoryName.value = '';
-                };
-                const removeCategory = async (index) => {
-                    if(confirm("刪除此類別？")) {
-                        settings.value.customCategories.splice(index, 1);
-                        await saveSettings();
-                    }
-                };
+                const addCategory = async () => { if(!newCategoryName.value) return; settings.value.customCategories.push(newCategoryName.value); await saveSettings(); newCategoryName.value = ''; };
+                const removeCategory = async (index) => { if(confirm("刪除此類別？")) { settings.value.customCategories.splice(index, 1); await saveSettings(); }};
 
                 const handleEntryClick = (entry) => { if(isAdmin.value) { editingId.value = entry.id; form.value = {...entry}; showEditModal.value = true; }};
                 const submitEdit = async () => { await updateDoc(doc(db, "transactions", editingId.value), form.value); showEditModal.value = false; form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; };
@@ -412,8 +474,9 @@
                     role, isAdmin, pinInput, loginError, checkPin, logout,
                     currentTab, currentMonth, filteredEntries, 
                     monthStartBalance, monthTotalIncome, monthTotalExpense, monthEndBalance,
-                    form, settings, searchQuery, amountInput, filterType,
-                    showSettings, showReconcileModal, showEditModal, isSubmitting,
+                    reportStats,
+                    form, settings, searchQuery, amountInput, itemInput, filterType,
+                    showSettings, showReconcileModal, showEditModal, showReportModal, isSubmitting,
                     finalCategories, newCategoryName, isCheckedThisMonth,
                     changeMonth, submitForm, focusAmount, handleEntryClick, submitEdit, deleteCurrentEntry, saveSettings, addReconciliation, addCategory, removeCategory,
                     formatNumber, formatDateShort
