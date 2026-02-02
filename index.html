@@ -42,6 +42,15 @@
         .report-label { color: #718096; font-size: 0.9rem; }
         .report-val { font-weight: bold; font-family: 'Varela Round'; text-align: right; }
 
+        /* 核對標籤樣式 (電腦/手機通用) */
+        .reconcile-badge {
+            display: inline-flex; align-items: center; 
+            font-size: 0.7rem; color: #059669; 
+            background-color: #ECFDF5; padding: 4px 8px; 
+            border-radius: 999px; margin-top: 4px;
+            border: 1px solid #A7F3D0; font-weight: bold;
+        }
+
         [v-cloak] { display: none; }
     </style>
 </head>
@@ -129,8 +138,11 @@
                                 <div class="absolute right-0 top-0 w-24 h-24 bg-[#7B8FA1]/10 rounded-bl-[60px]"></div>
                                 <div class="text-sm text-gray-400 font-medium mb-1">本月期末餘額</div>
                                 <div class="text-3xl font-bold text-gray-800 num-font tracking-tight">$ {{ formatNumber(monthEndBalance) }}</div>
-                                <div class="mt-4 text-xs text-gray-400">
-                                    <span :class="isCheckedThisMonth ? 'text-green-500' : 'text-gray-300'"><i class="fa-solid fa-circle-check mr-1"></i>{{ isCheckedThisMonth ? '本月已核對' : '尚未核對' }}</span>
+                                <div class="mt-4 text-xs">
+                                    <span v-if="lastReconciledTime" class="text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                                        <i class="fa-solid fa-check-double mr-1"></i>核對於 {{ lastReconciledTime }}
+                                    </span>
+                                    <span v-else class="text-gray-300">本月尚未核對</span>
                                 </div>
                             </div>
                             <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2 flex justify-around items-center">
@@ -186,7 +198,13 @@
                                     <tr v-for="entry in filteredEntries" :key="entry.id" :class="['hover:bg-gray-50 transition group', isAdmin ? 'cursor-pointer' : '']" @click="handleEntryClick(entry)">
                                         <td class="p-4 text-gray-500 text-sm font-medium">{{ formatDateShort(entry.date) }}</td>
                                         <td class="p-4"><span :class="['px-2 py-1 rounded text-xs font-bold', entry.type === 'income' ? 'bg-[#95B8A6]/10 text-[#5F8C76]' : 'bg-[#D4A5A5]/10 text-[#C07676]']">{{ entry.type === 'income' ? '收入' : '支出' }}</span></td>
-                                        <td class="p-4 text-gray-800 font-bold text-sm">{{ entry.item }}</td>
+                                        <td class="p-4">
+                                            <div class="text-gray-800 font-bold text-sm">{{ entry.item }}</div>
+                                            <div v-if="reconciliationMap[entry.id]" class="reconcile-badge">
+                                                <i class="fa-solid fa-check mr-1"></i>
+                                                {{ formatReconcileTime(reconciliationMap[entry.id].date) }} 核對 (餘額: ${{ formatNumber(reconciliationMap[entry.id].amount) }})
+                                            </div>
+                                        </td>
                                         <td class="p-4 text-gray-600 text-sm"><span class="bg-gray-100 px-2 py-1 rounded">{{ entry.category }}</span></td>
                                         <td :class="['p-4 text-right font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">{{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}</td>
                                         <td v-if="isAdmin" class="p-4 text-center"><i class="fa-solid fa-pen text-gray-300 opacity-0 group-hover:opacity-100 hover:text-[#7B8FA1] transition"></i></td>
@@ -194,22 +212,31 @@
                                     <tr v-if="filteredEntries.length === 0"><td colspan="6" class="p-8 text-center text-gray-400">尚無符合條件的紀錄</td></tr>
                                 </tbody>
                             </table>
+
                             <div class="md:hidden divide-y divide-gray-100">
-                                <div v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="p-4 flex justify-between items-center active:bg-gray-50">
-                                    <div class="flex items-center gap-3 overflow-hidden">
-                                        <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs shadow-sm', entry.type === 'income' ? 'bg-[#95B8A6]' : 'bg-[#D4A5A5]']">
-                                            {{ entry.type === 'income' ? '收' : '支' }}
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="font-bold text-gray-700 truncate text-sm mb-1">{{ entry.item }}</div>
-                                            <div class="flex items-center gap-2 text-xs text-gray-400">
-                                                <span>{{ formatDateShort(entry.date) }}</span>
-                                                <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category }}</span>
+                                <div v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="p-4 active:bg-gray-50">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex items-center gap-3 overflow-hidden">
+                                            <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs shadow-sm', entry.type === 'income' ? 'bg-[#95B8A6]' : 'bg-[#D4A5A5]']">
+                                                {{ entry.type === 'income' ? '收' : '支' }}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-gray-700 truncate text-sm mb-1">{{ entry.item }}</div>
+                                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                                    <span>{{ formatDateShort(entry.date) }}</span>
+                                                    <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category }}</span>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div :class="['font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
+                                            {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
+                                        </div>
                                     </div>
-                                    <div :class="['font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
-                                        {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
+                                    <div v-if="reconciliationMap[entry.id]" class="mt-2 ml-14">
+                                        <div class="reconcile-badge">
+                                            <i class="fa-solid fa-check mr-1"></i>
+                                            {{ formatReconcileTime(reconciliationMap[entry.id].date) }} 核對 (餘額: ${{ formatNumber(reconciliationMap[entry.id].amount) }})
+                                        </div>
                                     </div>
                                 </div>
                                 <div v-if="filteredEntries.length === 0" class="p-8 text-center text-gray-400 text-sm">尚無紀錄</div>
@@ -316,8 +343,8 @@
                     <div class="text-xs text-gray-400 uppercase">系統餘額</div>
                     <div class="text-3xl font-bold num-font text-gray-800 mt-2">$ {{ formatNumber(monthEndBalance) }}</div>
                 </div>
-                <button @click="addReconciliation" :disabled="isCheckedThisMonth" :class="['w-full py-3.5 rounded-xl font-bold text-white transition', isCheckedThisMonth ? 'bg-gray-300' : 'bg-[#95B8A6]']">
-                    {{ isCheckedThisMonth ? '本月已核對' : '確認無誤，核對！' }}
+                <button @click="addReconciliation" class="w-full py-3.5 rounded-xl font-bold text-white transition bg-[#95B8A6] shadow-lg shadow-green-100">
+                    確認餘額無誤，核對！
                 </button>
             </div>
         </div>
@@ -443,7 +470,23 @@
 
                 const finalCategories = computed(() => [...defaultCategories, ...settings.value.customCategories]);
                 const recentReconciliations = computed(() => reconciliations.value.filter(r => r.ledger === currentTab.value));
+                const reconciliationMap = computed(() => {
+                    const map = {};
+                    recentReconciliations.value.forEach(r => {
+                        if(r.lastTransactionId) {
+                            map[r.lastTransactionId] = r;
+                        }
+                    });
+                    return map;
+                });
+                
                 const isCheckedThisMonth = computed(() => recentReconciliations.value.length > 0 && new Date(recentReconciliations.value[0].date).getMonth() === new Date().getMonth());
+                const lastReconciledTime = computed(() => {
+                    if (recentReconciliations.value.length > 0) {
+                        return formatReconcileTime(recentReconciliations.value[0].date);
+                    }
+                    return null;
+                });
 
                 const changeMonth = (offset) => {
                     const d = new Date(currentMonth.value + "-01");
@@ -483,9 +526,29 @@
                 const submitEdit = async () => { await updateDoc(doc(db, "transactions", editingId.value), form.value); showEditModal.value = false; form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; };
                 const deleteCurrentEntry = async () => { if(confirm("刪除？")) await deleteDoc(doc(db, "transactions", editingId.value)); showEditModal.value = false; };
                 const saveSettings = async () => await setDoc(doc(db, "settings", "general"), settings.value);
-                const addReconciliation = async () => { if(!isAdmin.value) return; await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), ledger: currentTab.value, amount: monthEndBalance.value }); };
+                
+                const addReconciliation = async () => {
+                    if(!isAdmin.value) return;
+                    const latestTx = filteredEntries.value.length > 0 ? filteredEntries.value[0] : null;
+                    await addDoc(collection(db, "reconciliations"), { 
+                        date: new Date().toISOString(), 
+                        ledger: currentTab.value, 
+                        amount: monthEndBalance.value,
+                        lastTransactionId: latestTx ? latestTx.id : null 
+                    });
+                    showReconcileModal.value = false;
+                };
+
                 const formatNumber = (num) => new Intl.NumberFormat().format(num);
                 const formatDateShort = (str) => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; };
+                const formatReconcileTime = (str) => {
+                    const d = new Date(str);
+                    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const day = d.getDate().toString().padStart(2, '0');
+                    const h = d.getHours().toString().padStart(2, '0');
+                    const min = d.getMinutes().toString().padStart(2, '0');
+                    return `${m}/${day} ${h}:${min}`;
+                };
 
                 return {
                     role, isAdmin, pinInput, loginError, checkPin, logout,
@@ -494,9 +557,9 @@
                     reportStats,
                     form, settings, searchQuery, amountInput, itemInput, filterType,
                     showSettings, showReconcileModal, showEditModal, showReportModal, isSubmitting, editingId,
-                    finalCategories, newCategoryName, isCheckedThisMonth,
+                    finalCategories, newCategoryName, isCheckedThisMonth, lastReconciledTime, reconciliationMap,
                     changeMonth, submitForm, submitFormMobile, focusAmount, handleEntryClick, submitEdit, deleteCurrentEntry, saveSettings, addReconciliation, addCategory, removeCategory,
-                    formatNumber, formatDateShort
+                    formatNumber, formatDateShort, formatReconcileTime
                 };
             }
         }).mount('#app');
