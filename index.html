@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ossen 記帳系統 (修復版)</title>
+    <title>Ossen 記帳系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Varela+Round&display=swap" rel="stylesheet">
@@ -208,7 +208,7 @@
                                         <td :class="['p-4 text-right font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">{{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}</td>
                                         <td v-if="isAdmin" class="p-4 text-center"><i class="fa-solid fa-pen text-gray-300 opacity-0 group-hover:opacity-100 hover:text-[#7B8FA1] transition"></i></td>
                                     </tr>
-                                    <tr v-if="filteredEntries.length === 0"><td colspan="6" class="p-8 text-center text-gray-400">尚無符合條件的紀錄</td></tr>
+                                    <tr v-if="filteredEntries.length === 0"><td colspan="6" class="p-8 text-center text-gray-400">本月尚無紀錄，請切換月份或新增</td></tr>
                                 </tbody>
                             </table>
 
@@ -238,7 +238,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div v-if="filteredEntries.length === 0" class="p-8 text-center text-gray-400 text-sm">尚無紀錄</div>
+                                <div v-if="filteredEntries.length === 0" class="p-8 text-center text-gray-400 text-sm">本月尚無紀錄</div>
                             </div>
                         </div>
                     </div>
@@ -354,6 +354,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // 這是您原始的 Firebase 連線設定
         const firebaseConfig = {
             apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
             authDomain: "ossen-money.firebaseapp.com",
@@ -406,7 +407,26 @@
                     return [...defaultCategories, ...(settings.value.customCategories || [])];
                 });
 
-                // --- 1. 修改：強力防錯的數字格式化函式 ---
+                // --- 密碼驗證 (已修正為您的專屬密碼) ---
+                const checkPin = () => {
+                    // 行政版 (管理權限: 671213)
+                    if (pinInput.value === '671213') { 
+                        localStorage.setItem('ln_role', 'admin');
+                        role.value = 'admin';
+                    } 
+                    // 老闆版 (檢視權限: 45688123)
+                    else if (pinInput.value === '45688123') {
+                        localStorage.setItem('ln_role', 'viewer');
+                        role.value = 'viewer';
+                    } 
+                    // 錯誤
+                    else {
+                        loginError.value = true;
+                        setTimeout(() => loginError.value = false, 2000);
+                    }
+                };
+
+                // --- 1. 防錯格式化 ---
                 const formatNumber = (num) => {
                     if (num === undefined || num === null || isNaN(Number(num))) {
                         return '0';
@@ -418,7 +438,7 @@
                     }
                 };
 
-                // --- 2. 修改：安全的餘額計算 ---
+                // --- 2. 安全餘額計算 ---
                 const monthEndBalance = computed(() => {
                     try {
                         let initial = 0;
@@ -441,34 +461,32 @@
                         }, initial);
 
                     } catch (error) {
-                        console.error("餘額計算錯誤", error);
                         return 0; 
                     }
                 });
 
-                // --- 3. 修改：安全的列表過濾 ---
+                // --- 3. 安全列表過濾 ---
                 const filteredEntries = computed(() => {
                     if (!transactions.value) return [];
                     
                     return transactions.value.filter(t => {
-                        if (!t) return false; // 跳過空物件
+                        if (!t) return false; 
                         
-                        // 防呆處理
-                        const dateStr = t.date || '';
+                        const dateStr = t.date || ''; // 防止日期空白報錯
                         const itemStr = t.item || '';
                         const catStr = t.category || '';
                         
-                        const matchMonth = dateStr.startsWith(currentMonth.value);
+                        // 只要月份符合，或日期空白(為了讓你刪除壞帳)都顯示
+                        const matchMonth = dateStr.startsWith(currentMonth.value) || dateStr === '';
                         const matchTab = t.tab === currentTab.value;
                         const matchType = filterType.value === 'all' || t.type === filterType.value;
                         const matchSearch = itemStr.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
                                           catStr.includes(searchQuery.value);
                         
                         return matchMonth && matchTab && matchType && matchSearch;
-                    }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)); // 日期錯誤時視為 0
+                    }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)); 
                 });
 
-                // 其他統計數據 (同樣加強防護)
                 const monthStartBalance = computed(() => {
                     try {
                         let initial = currentTab.value === 'cash' ? (Number(settings.value?.cashInitial)||0) : (Number(settings.value?.accountInitial)||0);
@@ -520,9 +538,6 @@
 
                 const reconciliationMap = computed(() => {
                     const map = {};
-                    reconciliations.value.forEach(r => {
-                        // 這裡可以根據邏輯對應到特定交易，目前範例簡化
-                    });
                     return map; 
                 });
 
@@ -551,19 +566,6 @@
                     });
                 });
 
-                const checkPin = () => {
-                    if (pinInput.value === '0000') { // 預設密碼 0000
-                        localStorage.setItem('ln_role', 'admin');
-                        role.value = 'admin';
-                    } else if (pinInput.value === '1111') {
-                        localStorage.setItem('ln_role', 'viewer');
-                        role.value = 'viewer';
-                    } else {
-                        loginError.value = true;
-                        setTimeout(() => loginError.value = false, 2000);
-                    }
-                };
-
                 const logout = () => {
                     localStorage.removeItem('ln_role');
                     role.value = null;
@@ -584,7 +586,7 @@
 
                 const formatReconcileTime = (dateStr) => {
                     if (!dateStr) return '';
-                    return dateStr.slice(5, 10); // MM-DD
+                    return dateStr.slice(5, 10); 
                 };
 
                 const focusAmount = () => {
@@ -630,7 +632,7 @@
                         const ref = doc(db, "transactions", editingId.value);
                         await updateDoc(ref, {
                             ...form.value,
-                            tab: currentTab.value // 確保 tab 正確
+                            tab: currentTab.value 
                         });
                         showEditModal.value = false;
                         editingId.value = null;
