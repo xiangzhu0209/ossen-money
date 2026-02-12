@@ -1,5 +1,5 @@
 <script type="module">
-    import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+    import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -16,14 +16,15 @@
     const firebaseApp = initializeApp(firebaseConfig);
     const db = getFirestore(firebaseApp);
 
-    createApp({
+    // 1. 先定義好整個 App 的邏輯
+    const app = createApp({
         setup() {
             const role = ref(localStorage.getItem('ln_role') || null);
             const pinInput = ref('');
             const loginError = ref(false);
             const isAdmin = computed(() => role.value === 'admin');
 
-            const currentTab = ref('cash'); // 'cash' 或 'account'
+            const currentTab = ref('cash'); 
             const currentMonth = ref(new Date().toISOString().slice(0, 7));
             const transactions = ref([]);
             const settings = ref({ cashInitial: 0, accountInitial: 0, customCategories: [] });
@@ -50,36 +51,32 @@
                 item: ''
             });
 
-            // 類別清單
             const finalCategories = computed(() => {
                 const defaults = ['餐飲', '交通', '購物', '娛樂', '醫療', '轉帳', '其他'];
                 return [...new Set([...defaults, ...settings.value.customCategories])];
             });
 
-            // 修復關鍵：過濾資料邏輯，確保 tab 欄位精準匹配
+            // 修正過的過濾邏輯
             const filteredEntries = computed(() => {
                 return transactions.value.filter(t => {
                     const inMonth = t.date && t.date.startsWith(currentMonth.value);
-                    const matchTab = t.tab === currentTab.value;
+                    const matchTab = (t.tab || 'cash') === currentTab.value; // 沒標記的預設為 cash
                     const matchType = filterType.value === 'all' || t.type === filterType.value;
-                    const matchSearch = t.item?.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-                                      t.category?.toLowerCase().includes(searchQuery.value.toLowerCase());
+                    const matchSearch = (t.item || '').toLowerCase().includes(searchQuery.value.toLowerCase());
                     return inMonth && matchTab && matchType && matchSearch;
                 });
             });
 
-            // 餘額計算
             const monthStartBalance = computed(() => {
                 const initial = currentTab.value === 'cash' ? (settings.value.cashInitial || 0) : (settings.value.accountInitial || 0);
-                const prevTransactions = transactions.value.filter(t => t.tab === currentTab.value && t.date < currentMonth.value + "-01");
+                const prevTransactions = transactions.value.filter(t => (t.tab || 'cash') === currentTab.value && t.date < currentMonth.value + "-01");
                 return prevTransactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, initial);
             });
 
-            const monthTotalIncome = computed(() => filteredEntries.value.filter(e => e.type === 'income').reduce((a, b) => a + b.amount, 0));
-            const monthTotalExpense = computed(() => filteredEntries.value.filter(e => e.type === 'expense').reduce((a, b) => a + b.amount, 0));
+            const monthTotalIncome = computed(() => filteredEntries.value.filter(e => e.type === 'income').reduce((a, b) => a + (Number(b.amount) || 0), 0));
+            const monthTotalExpense = computed(() => filteredEntries.value.filter(e => e.type === 'expense').reduce((a, b) => a + (Number(b.amount) || 0), 0));
             const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
 
-            // 實時監聽資料庫
             onMounted(() => {
                 onSnapshot(query(collection(db, "transactions"), orderBy("date", "desc")), (snap) => {
                     transactions.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -87,57 +84,37 @@
                 onSnapshot(doc(db, "settings", "global"), (d) => {
                     if (d.exists()) settings.value = d.data();
                 });
-                onSnapshot(collection(db, "reconciliations"), (snap) => {
-                    reconciliations.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                });
             });
 
-            // 修正：新增資料時強制寫入當前 Tab
             const submitForm = async () => {
                 if (!form.value.item || !form.value.amount || isSubmitting.value) return;
                 isSubmitting.value = true;
                 try {
                     await addDoc(collection(db, "transactions"), { 
                         ...form.value, 
-                        tab: currentTab.value, // 這裡確保了是寫入 'cash' 或 'account'
+                        amount: Number(form.value.amount),
+                        tab: currentTab.value, 
                         createdAt: new Date() 
                     });
                     form.value.item = ''; 
                     form.value.amount = '';
-                    if(itemInput.value) itemInput.value.focus();
-                } catch (e) {
-                    console.error("寫入錯誤:", e);
-                    alert("儲存失敗，請檢查網路或權限");
-                } finally {
-                    isSubmitting.value = false;
-                }
-            };
-
-            // 修正：修改資料時應保持原本的 Tab，除非有特殊需求
-            const submitEdit = async () => {
-                if (!editingId.value) return;
-                try {
-                    const { id, ...updateData } = form.value;
-                    await updateDoc(doc(db, "transactions", editingId.value), updateData);
-                    showEditModal.value = false;
-                    editingId.value = null;
-                } catch (e) {
-                    console.error("更新錯誤:", e);
-                }
+                } catch (e) { console.error(e); } finally { isSubmitting.value = false; }
             };
 
             const handleEntryClick = (entry) => {
                 if (!isAdmin.value) return;
                 editingId.value = entry.id;
-                form.value = JSON.parse(JSON.stringify(entry)); // 深拷貝防止直接更動
+                form.value = { ...entry }; 
                 showEditModal.value = true;
             };
 
-            const deleteCurrentEntry = async () => {
-                if (confirm('確定要刪除這筆紀錄嗎？')) {
-                    await deleteDoc(doc(db, "transactions", editingId.value));
+            const submitEdit = async () => {
+                try {
+                    const { id, ...updateData } = form.value;
+                    updateData.amount = Number(updateData.amount);
+                    await updateDoc(doc(db, "transactions", editingId.value), updateData);
                     showEditModal.value = false;
-                }
+                } catch (e) { console.error(e); }
             };
 
             const checkPin = () => {
@@ -147,42 +124,30 @@
                 pinInput.value = '';
             };
 
-            // 輔助函式
-            const formatNumber = (n) => Number(n || 0).toLocaleString();
-            const formatDateShort = (d) => d ? d.split('-').slice(1).join('/') : '';
-            const logout = () => { role.value = null; localStorage.removeItem('ln_role'); };
-            const changeMonth = (val) => {
-                const d = new Date(currentMonth.value + "-01");
-                d.setMonth(d.getMonth() + val);
-                currentMonth.value = d.toISOString().slice(0, 7);
-            };
-
-           return {
+            return {
                 role, pinInput, loginError, isAdmin, currentTab, currentMonth, transactions, settings, 
                 searchQuery, filterType, showSettings, showReconcileModal, showEditModal, showReportModal,
                 isSubmitting, form, editingId, newCategoryName, finalCategories, filteredEntries,
                 monthStartBalance, monthTotalIncome, monthTotalExpense, monthEndBalance,
-                amountInput, itemInput,
-                checkPin, logout, changeMonth, formatNumber, formatDateShort,
-                submitForm, handleEntryClick, submitEdit, deleteCurrentEntry,
-                addCategory: async () => {
-                    if(newCategoryName.value) {
-                        settings.value.customCategories.push(newCategoryName.value);
-                        newCategoryName.value = '';
-                        await setDoc(doc(db, "settings", "global"), settings.value);
+                checkPin, logout: () => { role.value = null; localStorage.removeItem('ln_role'); },
+                changeMonth: (val) => {
+                    const d = new Date(currentMonth.value + "-01");
+                    d.setMonth(d.getMonth() + val);
+                    currentMonth.value = d.toISOString().slice(0, 7);
+                },
+                formatNumber: (n) => Number(n || 0).toLocaleString(),
+                formatDateShort: (d) => d ? d.split('-').slice(1).join('/') : '',
+                submitForm, handleEntryClick, submitEdit, 
+                deleteCurrentEntry: async () => {
+                    if (confirm('確定刪除？')) {
+                        await deleteDoc(doc(db, "transactions", editingId.value));
+                        showEditModal.value = false;
                     }
                 }
             };
         }
     });
 
-    // 關鍵修正：確保 DOM 載入後才掛載 Vue
-    document.addEventListener('DOMContentLoaded', () => {
-        const appElement = document.getElementById('app');
-        if (appElement) {
-            app.mount('#app');
-        } else {
-            console.error("找不到 #app 元素，請檢查 HTML 結構是否包含 <div id='app'>");
-        }
-    });
+    // 2. 確定掛載到 #app
+    app.mount('#app');
 </script>
