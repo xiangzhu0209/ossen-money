@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ossen 系統 (終極救援版)</title>
+    <title>Ossen 系統 (強力刪除版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Varela+Round&display=swap" rel="stylesheet">
@@ -20,12 +20,12 @@
         
         <div v-if="!role" class="fixed inset-0 z-50 bg-[#F5F7FA] flex items-center justify-center p-6">
             <div class="bg-white p-8 rounded-[32px] shadow-xl w-full max-w-md text-center">
-                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-green-600"><i class="fa-solid fa-database"></i></div>
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">資料救援模式</h1>
-                <p class="text-gray-500 mb-6 text-sm">已偵測到 156 筆資料，請登入以檢視</p>
+                <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-red-600"><i class="fa-solid fa-trash-can"></i></div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">強力刪除模式</h1>
+                <p class="text-gray-500 mb-6 text-sm">請登入以清理重複資料</p>
                 <div class="relative">
-                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="輸入密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-green-500 transition-all" autofocus>
-                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
+                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="輸入密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-red-500 transition-all" autofocus>
+                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
                 <p v-if="loginError" class="text-red-400 text-sm mt-4 font-bold">密碼錯誤</p>
             </div>
@@ -33,59 +33,51 @@
 
         <template v-else>
             <div class="bg-white px-4 py-3 border-b flex justify-between items-center shadow-sm z-20 shrink-0">
-                <div class="flex items-center gap-2 text-green-600 font-bold text-lg"><i class="fa-solid fa-kit-medical"></i> 救援模式</div>
-                <div class="text-xs text-gray-500">顯示所有資料 (共 {{ filteredEntries.length }} 筆)</div>
-                <button @click="logout" class="text-red-300 px-2"><i class="fa-solid fa-right-from-bracket"></i></button>
+                <div class="flex items-center gap-2 text-red-600 font-bold text-lg"><i class="fa-solid fa-eraser"></i> 點擊即可刪除</div>
+                <button @click="logout" class="text-gray-400 px-2"><i class="fa-solid fa-right-from-bracket"></i></button>
             </div>
 
             <main class="flex-1 overflow-y-auto p-4">
                 <div class="max-w-2xl mx-auto">
                     <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 rounded-r-lg">
                         <div class="flex">
-                            <div class="flex-shrink-0"><i class="fa-solid fa-triangle-exclamation text-red-400"></i></div>
+                            <div class="flex-shrink-0"><i class="fa-solid fa-circle-info text-red-400"></i></div>
                             <div class="ml-3">
-                                <p class="text-sm text-red-700 font-bold">重要提示</p>
-                                <p class="text-sm text-red-600">此模式會列出「所有帳本」和「所有日期」的資料。<br>請往下捲動，找到<b>紅色標示</b>或<b>空白</b>的異常資料並刪除它。</p>
+                                <p class="text-sm text-red-700 font-bold">操作說明</p>
+                                <p class="text-sm text-red-600">現在不用按小按鈕了。<b>直接點擊那一整行</b>，系統就會問你要不要刪除。</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div v-for="entry in filteredEntries" :key="entry.id" class="p-4 border-b border-gray-100 hover:bg-gray-50 transition flex justify-between items-center group">
+                        <div v-for="entry in filteredEntries" :key="entry.id" @click="confirmDelete(entry)" class="p-4 border-b border-gray-100 hover:bg-red-50 cursor-pointer transition flex justify-between items-center group">
                             
-                            <div class="flex items-center gap-3 overflow-hidden" @click="handleEntryClick(entry)">
-                                <div v-if="!entry.date || isNaN(entry.amount)" class="w-10 h-10 rounded-full bg-red-100 text-red-500 flex items-center justify-center shrink-0 animate-pulse">
-                                    <i class="fa-solid fa-bug"></i>
-                                </div>
-                                <div v-else :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs', entry.tab==='cash'?'bg-blue-400':'bg-purple-400']">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs', entry.tab==='cash'?'bg-blue-400':'bg-purple-400']">
                                     {{ entry.tab==='cash'?'現':'銀' }}
                                 </div>
 
                                 <div class="min-w-0">
                                     <div class="font-bold text-gray-800 text-base">
-                                        {{ entry.item || '(無說明 - 請檢查)' }}
+                                        {{ entry.item || '(無說明)' }}
                                     </div>
                                     <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                        <span :class="(!entry.date)?'text-red-500 font-bold bg-red-50 px-1':''">
-                                            {{ entry.date || '⚠️ 日期遺失' }}
-                                        </span>
+                                        <span>{{ entry.date || '⚠️ 無日期' }}</span>
                                         <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category || '未分類' }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2">
                                 <div :class="['font-bold num-font text-lg', entry.type === 'income' ? 'text-green-500' : 'text-red-400']">
                                     {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
                                 </div>
-                                <button v-if="isAdmin" @click="quickDelete(entry.id)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-500 hover:text-white text-gray-400 flex items-center justify-center transition">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
+                                <i class="fa-solid fa-xmark text-red-300 group-hover:text-red-600"></i>
                             </div>
 
                         </div>
                         <div v-if="filteredEntries.length === 0" class="p-10 text-center text-gray-400">
-                            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><br>正在讀取雲端資料庫...
+                            讀取中...
                         </div>
                     </div>
                 </div>
@@ -98,7 +90,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, deleteDoc, doc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 這是你的金鑰設定 (跟診斷工具一樣，這一定是對的)
         const firebaseConfig = {
             apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
             authDomain: "ossen-money.firebaseapp.com",
@@ -120,7 +111,6 @@
                 const isAdmin = computed(() => role.value === 'admin');
                 const transactions = ref([]);
 
-                // 你的密碼邏輯
                 const checkPin = () => {
                     if (pinInput.value === '671213') { 
                         localStorage.setItem('ln_role', 'admin'); role.value = 'admin';
@@ -132,51 +122,52 @@
                 };
                 const logout = () => { localStorage.removeItem('ln_role'); role.value = null; pinInput.value = ''; };
 
-                // 強力防呆：不管數字多怪，都回傳 0，絕不當機
                 const formatNumber = (num) => {
                     if (num === undefined || num === null || isNaN(Number(num))) return 'ERROR';
                     try { return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); } catch (e) { return '0'; }
                 };
 
-                // 終極列表：混合所有資料，把壞掉的置頂
                 const filteredEntries = computed(() => {
                     if (!transactions.value) return [];
-                    // 複製一份陣列來排序
                     return [...transactions.value].sort((a, b) => {
-                        // 1. 先把壞掉的 (沒日期) 排最上面
+                        // 讓壞掉的資料排最上面
                         if (!a.date) return -1; 
                         if (!b.date) return 1;
-                        // 2. 再把壞掉的 (金額怪怪的) 排上面
-                        if (isNaN(Number(a.amount))) return -1;
-                        if (isNaN(Number(b.amount))) return 1;
-                        // 3. 剩下的按照日期，越新的越上面
+                        if (a.date === '2026-02-12') return -1; // 讓你方便找到這天的資料
                         return new Date(b.date) - new Date(a.date);
                     });
                 });
 
-                // 連線資料庫
                 onMounted(() => {
-                    // 使用跟診斷工具一樣的 collection
                     const q = query(collection(db, "transactions"));
                     onSnapshot(q, (snapshot) => {
                         transactions.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     });
                 });
 
-                // 快速刪除功能
-                const quickDelete = async (id) => {
-                    if(!confirm('確定要永久刪除這筆資料嗎？')) return;
-                    try {
-                        await deleteDoc(doc(db, "transactions", id));
-                        // 刪除成功不需要做什麼，onSnapshot 會自動更新畫面
-                    } catch(e) {
-                        alert("刪除失敗：" + e.message);
+                // --- 點擊整行刪除 (最穩定的方法) ---
+                const confirmDelete = async (entry) => {
+                    if (!isAdmin.value) { alert("請用管理員密碼登入才能刪除"); return; }
+                    
+                    const msg = `確認要「永久刪除」這筆資料嗎？\n\n項目：${entry.item}\n金額：${formatNumber(entry.amount)}\n日期：${entry.date}`;
+                    
+                    if (confirm(msg)) {
+                        try {
+                            if (!entry.id) {
+                                alert("這筆資料ID損毀，無法刪除 (可能已經被刪除了)");
+                                return;
+                            }
+                            await deleteDoc(doc(db, "transactions", entry.id));
+                            alert("✅ 刪除成功！");
+                        } catch(e) {
+                            alert("❌ 刪除失敗：" + e.message);
+                        }
                     }
                 }
 
                 return {
                     role, pinInput, loginError, isAdmin, checkPin, logout,
-                    filteredEntries, formatNumber, quickDelete
+                    filteredEntries, formatNumber, confirmDelete
                 };
             }
         }).mount('#app');
