@@ -1,568 +1,178 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ossen 記帳系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Varela+Round&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-body: #F5F7FA;
-            --primary: #7B8FA1;
-            --primary-hover: #56697A;
-            --text-main: #2D3748;
-        }
-        body { 
-            font-family: 'Varela Round', 'Noto Sans TC', sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-main);
-            height: 100vh;
-            overflow: hidden;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .num-font { font-family: 'Varela Round', sans-serif; font-weight: 600; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 4px; }
-        
-        .nav-item { display: flex; align-items: center; padding: 12px 20px; margin-bottom: 8px; border-radius: 12px; color: #718096; transition: 0.2s; cursor: pointer; font-weight: 500; }
-        .nav-item:hover { background-color: #EDF2F7; color: var(--primary); transform: translateX(4px); }
-        .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3); }
+<script type="module">
+    import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        .mobile-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; color: #A0AEC0; font-size: 0.75rem; transition: 0.2s; }
-        .mobile-nav-item i { font-size: 1.25rem; margin-bottom: 2px; }
-        .mobile-nav-item.active { color: var(--primary); font-weight: bold; }
+    const firebaseConfig = {
+        apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
+        authDomain: "ossen-money.firebaseapp.com",
+        projectId: "ossen-money",
+        storageBucket: "ossen-money.firebasestorage.app",
+        messagingSenderId: "910508291691",
+        appId: "1:910508291691:web:cf44c7a77a5ea9e878232e",
+        measurementId: "G-H1PR0LZZ4Q"
+    };
 
-        .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; transition: 0.2s; outline: none; width: 100%; }
-        .input-std:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(123, 143, 161, 0.1); }
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
 
-        .report-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
-        .report-table tr:last-child td { border-bottom: none; }
-        .report-label { color: #718096; font-size: 0.9rem; }
-        .report-val { font-weight: bold; font-family: 'Varela Round'; text-align: right; }
+    createApp({
+        setup() {
+            const role = ref(localStorage.getItem('ln_role') || null);
+            const pinInput = ref('');
+            const loginError = ref(false);
+            const isAdmin = computed(() => role.value === 'admin');
 
-        /* 核對標籤樣式 (電腦/手機通用) */
-        .reconcile-badge {
-            display: inline-flex; align-items: center; 
-            font-size: 0.7rem; color: #059669; 
-            background-color: #ECFDF5; padding: 4px 8px; 
-            border-radius: 999px; margin-top: 4px;
-            border: 1px solid #A7F3D0; font-weight: bold;
-        }
+            const currentTab = ref('cash'); // 'cash' 或 'account'
+            const currentMonth = ref(new Date().toISOString().slice(0, 7));
+            const transactions = ref([]);
+            const settings = ref({ cashInitial: 0, accountInitial: 0, customCategories: [] });
+            const reconciliations = ref([]);
+            const searchQuery = ref('');
+            const filterType = ref('all'); 
+            
+            const amountInput = ref(null);
+            const itemInput = ref(null);
 
-        [v-cloak] { display: none; }
-    </style>
-</head>
-<body>
-    <div id="app" v-cloak class="flex flex-col md:flex-row h-screen w-full">
-        
-        <div v-if="!role" class="fixed inset-0 z-50 bg-[#F5F7FA] flex items-center justify-center p-6">
-            <div class="bg-white p-8 md:p-10 rounded-[32px] shadow-xl w-full max-w-md text-center">
-                <div class="w-20 h-20 bg-[#EDF2F7] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-[#7B8FA1]"><i class="fa-solid fa-laptop-file"></i></div>
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">Ossen System</h1>
-                <p class="text-gray-400 mb-8 text-sm">請輸入存取密碼</p>
-                <div class="relative">
-                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-[#7B8FA1] transition-all" autofocus>
-                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-[#7B8FA1] text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
-                </div>
-                <p v-if="loginError" class="text-red-400 text-sm mt-4 animate-bounce font-bold">密碼錯誤</p>
-            </div>
-        </div>
+            const showSettings = ref(false);
+            const showReconcileModal = ref(false);
+            const showEditModal = ref(false);
+            const showReportModal = ref(false);
+            const isSubmitting = ref(false);
+            const editingId = ref(null);
+            const newCategoryName = ref('');
 
-        <template v-else>
-            <div class="md:hidden bg-white px-4 py-3 border-b flex justify-between items-center shadow-sm z-20 shrink-0">
-                <div class="flex items-center gap-2 text-[#7B8FA1] font-bold text-lg"><i class="fa-solid fa-shapes"></i> Ossen</div>
-                <div class="flex items-center bg-gray-100 rounded-lg px-2 py-1">
-                    <button @click="changeMonth(-1)" class="p-1 text-gray-400"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                    <input type="month" v-model="currentMonth" class="bg-transparent font-bold text-gray-700 text-center w-24 text-sm border-none p-0 focus:ring-0">
-                    <button @click="changeMonth(1)" class="p-1 text-gray-400"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-                </div>
-                <button @click="logout" class="text-red-300"><i class="fa-solid fa-right-from-bracket"></i></button>
-            </div>
+            const form = ref({
+                date: new Date().toISOString().split('T')[0],
+                type: 'expense',
+                amount: '',
+                category: '其他',
+                item: ''
+            });
 
-            <aside class="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col flex-shrink-0 z-20">
-                <div class="p-8 pb-4">
-                    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-shapes text-[#7B8FA1]"></i> Ossen</h1>
-                    <p class="text-xs text-gray-400 pl-8 mt-1 font-medium">記帳管理系統</p>
-                </div>
-                <div class="px-4 mb-6">
-                    <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <label class="text-xs text-gray-400 font-bold mb-2 block uppercase">Current Period</label>
-                        <div class="flex items-center justify-between">
-                            <button @click="changeMonth(-1)" class="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-gray-400"><i class="fa-solid fa-chevron-left"></i></button>
-                            <input type="month" v-model="currentMonth" class="bg-transparent font-bold text-gray-700 text-center w-28 cursor-pointer outline-none">
-                            <button @click="changeMonth(1)" class="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-gray-400"><i class="fa-solid fa-chevron-right"></i></button>
-                        </div>
-                    </div>
-                </div>
-                <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-4">帳本</div>
-                    <div @click="currentTab = 'cash'" :class="['nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet w-5 mr-3 text-center"></i> 現金帳本</div>
-                    <div @click="currentTab = 'account'" :class="['nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns w-5 mr-3 text-center"></i> 銀行帳戶</div>
-                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">分析</div>
-                    <div @click="showReportModal = true" class="nav-item hover:text-blue-600"><i class="fa-solid fa-chart-pie w-5 mr-3 text-center"></i> 月結報表</div>
-                    <div v-if="isAdmin">
-                        <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">管理</div>
-                        <div @click="showReconcileModal = true" class="nav-item hover:text-green-600"><i class="fa-solid fa-clipboard-check w-5 mr-3 text-center"></i> 帳務核對</div>
-                        <div @click="showSettings = true" class="nav-item"><i class="fa-solid fa-gear w-5 mr-3 text-center"></i> 系統設定</div>
-                    </div>
-                </nav>
-                <div class="p-4 border-t border-gray-100">
-                    <div @click="logout" class="nav-item text-red-400 hover:bg-red-50 hover:text-red-500 mb-0"><i class="fa-solid fa-right-from-bracket w-5 mr-3 text-center"></i> 登出</div>
-                </div>
-            </aside>
+            // 類別清單
+            const finalCategories = computed(() => {
+                const defaults = ['餐飲', '交通', '購物', '娛樂', '醫療', '轉帳', '其他'];
+                return [...new Set([...defaults, ...settings.value.customCategories])];
+            });
 
-            <main class="flex-1 flex flex-col min-w-0 bg-[#F5F7FA] overflow-hidden">
-                <header class="bg-white border-b border-gray-200 px-4 md:px-8 py-3 md:py-4 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm z-10 gap-3 shrink-0">
-                    <div class="hidden md:block">
-                        <h2 class="text-xl font-bold text-gray-800">{{ currentTab === 'cash' ? '現金帳本' : '銀行帳戶' }} <span v-if="role === 'viewer'" class="text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded-full ml-2">檢視模式</span></h2>
-                    </div>
-                    <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                        <div class="flex bg-gray-100 rounded-xl p-1 w-full md:w-auto">
-                            <button @click="filterType = 'all'" :class="['flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition text-center', filterType === 'all' ? 'bg-white text-gray-600 shadow-sm' : 'text-gray-400']">全部</button>
-                            <button @click="filterType = 'income'" :class="['flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition text-center', filterType === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400']">收入</button>
-                            <button @click="filterType = 'expense'" :class="['flex-1 md:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition text-center', filterType === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400']">支出</button>
-                        </div>
-                        <div class="relative w-full md:w-64">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-300"></i>
-                            <input type="text" v-model="searchQuery" placeholder="搜尋紀錄..." class="w-full bg-gray-100 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-gray-200 transition">
-                        </div>
-                    </div>
-                </header>
+            // 修復關鍵：過濾資料邏輯，確保 tab 欄位精準匹配
+            const filteredEntries = computed(() => {
+                return transactions.value.filter(t => {
+                    const inMonth = t.date && t.date.startsWith(currentMonth.value);
+                    const matchTab = t.tab === currentTab.value;
+                    const matchType = filterType.value === 'all' || t.type === filterType.value;
+                    const matchSearch = t.item?.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+                                      t.category?.toLowerCase().includes(searchQuery.value.toLowerCase());
+                    return inMonth && matchTab && matchType && matchSearch;
+                });
+            });
 
-                <div class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
-                    <div class="max-w-6xl mx-auto space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                            <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
-                                <div class="absolute right-0 top-0 w-24 h-24 bg-[#7B8FA1]/10 rounded-bl-[60px]"></div>
-                                <div class="text-sm text-gray-400 font-medium mb-1">本月期末餘額</div>
-                                <div class="text-3xl font-bold text-gray-800 num-font tracking-tight">$ {{ formatNumber(monthEndBalance) }}</div>
-                                <div class="mt-4 text-xs">
-                                    <span v-if="lastReconciledTime" class="text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                                        <i class="fa-solid fa-check-double mr-1"></i>核對於 {{ lastReconciledTime }}
-                                    </span>
-                                    <span v-else class="text-gray-300">本月尚未核對</span>
-                                </div>
-                            </div>
-                            <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2 flex justify-around items-center">
-                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">上月結餘</div><div class="text-lg md:text-xl font-bold text-gray-600 num-font">$ {{ formatNumber(monthStartBalance) }}</div></div>
-                                <div class="h-8 md:h-10 w-px bg-gray-200"></div>
-                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">本月收入</div><div class="text-lg md:text-xl font-bold text-[#95B8A6] num-font">+ {{ formatNumber(monthTotalIncome) }}</div></div>
-                                <div class="h-8 md:h-10 w-px bg-gray-200"></div>
-                                <div class="text-center"><div class="text-xs text-gray-400 mb-1">本月支出</div><div class="text-lg md:text-xl font-bold text-[#D4A5A5] num-font">- {{ formatNumber(monthTotalExpense) }}</div></div>
-                            </div>
-                        </div>
+            // 餘額計算
+            const monthStartBalance = computed(() => {
+                const initial = currentTab.value === 'cash' ? (settings.value.cashInitial || 0) : (settings.value.accountInitial || 0);
+                const prevTransactions = transactions.value.filter(t => t.tab === currentTab.value && t.date < currentMonth.value + "-01");
+                return prevTransactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, initial);
+            });
 
-                        <div v-if="isAdmin" class="hidden md:flex bg-white p-4 rounded-2xl shadow-sm border border-blue-50 flex-wrap items-center gap-3">
-                            <div class="bg-blue-50 text-[#7B8FA1] px-3 py-2 rounded-lg font-bold text-sm flex items-center"><i class="fa-solid fa-pen-to-square mr-2"></i> 記帳</div>
-                            <input type="date" v-model="form.date" class="input-std w-auto font-medium text-gray-600 cursor-pointer">
-                            <div class="flex bg-gray-100 p-1 rounded-lg">
-                                <button @click="form.type = 'expense'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'expense' ? 'bg-white text-[#D4A5A5] shadow-sm' : 'text-gray-400']">支</button>
-                                <button @click="form.type = 'income'" :class="['px-3 py-1.5 rounded-md text-sm font-bold transition', form.type === 'income' ? 'bg-white text-[#95B8A6] shadow-sm' : 'text-gray-400']">收</button>
-                            </div>
-                            <input ref="itemInput" type="text" v-model="form.item" placeholder="備註事項..." class="input-std flex-[2]" @keyup.enter="focusAmount">
-                            <div class="relative w-32">
-                                <span class="absolute left-3 top-2.5 text-gray-400 text-sm">$</span>
-                                <input ref="amountInput" type="number" v-model.number="form.amount" placeholder="金額" class="input-std pl-6 font-bold num-font text-lg" @keyup.enter="submitForm">
-                            </div>
-                            <div class="relative w-40">
-                                <select v-model="form.category" class="input-std appearance-none cursor-pointer">
-                                    <option v-for="cat in finalCategories" :value="cat">{{ cat }}</option>
-                                </select>
-                                <i class="fa-solid fa-caret-down absolute right-3 top-3.5 text-gray-400 pointer-events-none"></i>
-                            </div>
-                            <button @click="submitForm" :disabled="isSubmitting" class="w-12 h-10 bg-[#7B8FA1] hover:bg-[#56697A] text-white rounded-lg shadow-md active:scale-95 transition flex items-center justify-center">
-                                <i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin"></i>
-                                <i v-else class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
+            const monthTotalIncome = computed(() => filteredEntries.value.filter(e => e.type === 'income').reduce((a, b) => a + b.amount, 0));
+            const monthTotalExpense = computed(() => filteredEntries.value.filter(e => e.type === 'expense').reduce((a, b) => a + b.amount, 0));
+            const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
 
-                        <button v-if="isAdmin" @click="showEditModal = true; form = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; editingId = null;" class="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-[#7B8FA1] text-white rounded-full shadow-xl flex items-center justify-center text-2xl z-30">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
+            // 實時監聽資料庫
+            onMounted(() => {
+                onSnapshot(query(collection(db, "transactions"), orderBy("date", "desc")), (snap) => {
+                    transactions.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                });
+                onSnapshot(doc(db, "settings", "global"), (d) => {
+                    if (d.exists()) settings.value = d.data();
+                });
+                onSnapshot(collection(db, "reconciliations"), (snap) => {
+                    reconciliations.value = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                });
+            });
 
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <table class="hidden md:table w-full text-left border-collapse">
-                                <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold border-b border-gray-100">
-                                    <tr>
-                                        <th class="p-4 w-32">日期</th>
-                                        <th class="p-4 w-24">類型</th>
-                                        <th class="p-4">項目說明</th>
-                                        <th class="p-4 w-48">類別</th>
-                                        <th class="p-4 text-right w-40">金額</th>
-                                        <th v-if="isAdmin" class="p-4 w-16"></th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-50">
-                                    <tr v-for="entry in filteredEntries" :key="entry.id" :class="['hover:bg-gray-50 transition group', isAdmin ? 'cursor-pointer' : '']" @click="handleEntryClick(entry)">
-                                        <td class="p-4 text-gray-500 text-sm font-medium">{{ formatDateShort(entry.date) }}</td>
-                                        <td class="p-4"><span :class="['px-2 py-1 rounded text-xs font-bold', entry.type === 'income' ? 'bg-[#95B8A6]/10 text-[#5F8C76]' : 'bg-[#D4A5A5]/10 text-[#C07676]']">{{ entry.type === 'income' ? '收入' : '支出' }}</span></td>
-                                        <td class="p-4">
-                                            <div class="text-gray-800 font-bold text-sm">{{ entry.item }}</div>
-                                            <div v-if="reconciliationMap[entry.id]" class="reconcile-badge">
-                                                <i class="fa-solid fa-check mr-1"></i>
-                                                {{ formatReconcileTime(reconciliationMap[entry.id].date) }} 核對 (餘額: ${{ formatNumber(reconciliationMap[entry.id].amount) }})
-                                            </div>
-                                        </td>
-                                        <td class="p-4 text-gray-600 text-sm"><span class="bg-gray-100 px-2 py-1 rounded">{{ entry.category }}</span></td>
-                                        <td :class="['p-4 text-right font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">{{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}</td>
-                                        <td v-if="isAdmin" class="p-4 text-center"><i class="fa-solid fa-pen text-gray-300 opacity-0 group-hover:opacity-100 hover:text-[#7B8FA1] transition"></i></td>
-                                    </tr>
-                                    <tr v-if="filteredEntries.length === 0"><td colspan="6" class="p-8 text-center text-gray-400">尚無符合條件的紀錄</td></tr>
-                                </tbody>
-                            </table>
-
-                            <div class="md:hidden divide-y divide-gray-100">
-                                <div v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="p-4 active:bg-gray-50">
-                                    <div class="flex justify-between items-center">
-                                        <div class="flex items-center gap-3 overflow-hidden">
-                                            <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs shadow-sm', entry.type === 'income' ? 'bg-[#95B8A6]' : 'bg-[#D4A5A5]']">
-                                                {{ entry.type === 'income' ? '收' : '支' }}
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="font-bold text-gray-700 truncate text-sm mb-1">{{ entry.item }}</div>
-                                                <div class="flex items-center gap-2 text-xs text-gray-400">
-                                                    <span>{{ formatDateShort(entry.date) }}</span>
-                                                    <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category }}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div :class="['font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
-                                            {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
-                                        </div>
-                                    </div>
-                                    <div v-if="reconciliationMap[entry.id]" class="mt-2 ml-14">
-                                        <div class="reconcile-badge">
-                                            <i class="fa-solid fa-check mr-1"></i>
-                                            {{ formatReconcileTime(reconciliationMap[entry.id].date) }} 核對 (餘額: ${{ formatNumber(reconciliationMap[entry.id].amount) }})
-                                        </div>
-                                    </div>
-                                </div>
-                                <div v-if="filteredEntries.length === 0" class="p-8 text-center text-gray-400 text-sm">尚無紀錄</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <div class="md:hidden bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full flex justify-around items-center z-20 pb-safe">
-                <button @click="currentTab = 'cash'" :class="['mobile-nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet"></i><span>現金</span></button>
-                <button @click="currentTab = 'account'" :class="['mobile-nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns"></i><span>帳戶</span></button>
-                <button @click="showReportModal = true" class="mobile-nav-item"><i class="fa-solid fa-chart-pie"></i><span>報表</span></button>
-            </div>
-        </template>
-
-        <div v-if="showReportModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-700">月結報表 <span class="text-sm font-normal text-gray-400">{{ currentMonth }}</span></h3>
-                    <button @click="showReportModal = false" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-xl mb-4 text-sm">
-                    <table class="w-full report-table">
-                        <tr><td class="report-label">現金總收入</td><td class="report-val text-green-600">+ {{ formatNumber(reportStats.cashIncome) }}</td></tr>
-                        <tr><td class="report-label">現金總支出</td><td class="report-val text-red-500">- {{ formatNumber(reportStats.cashExpense) }}</td></tr>
-                        <tr><td class="report-label font-bold text-gray-700">現金實收</td><td class="report-val text-gray-800 border-t-2 border-gray-200 pt-1">{{ formatNumber(reportStats.cashNet) }}</td></tr>
-                    </table>
-                </div>
-                <div class="bg-blue-50/50 p-4 rounded-xl mb-4 text-sm">
-                    <table class="w-full report-table">
-                         <tr><td class="report-label">帳戶收入</td><td class="report-val text-blue-600">+ {{ formatNumber(reportStats.accountIncome) }}</td></tr>
-                        <tr><td class="report-label">帳戶支出</td><td class="report-val text-red-500">- {{ formatNumber(reportStats.accountExpense) }}</td></tr>
-                         <tr><td class="report-label font-bold text-gray-700">帳戶實收</td><td class="report-val text-gray-800 border-t-2 border-blue-100 pt-1">{{ formatNumber(reportStats.accountNet) }}</td></tr>
-                    </table>
-                </div>
-                <div class="bg-[#7B8FA1] text-white p-4 rounded-xl flex justify-between items-center shadow-lg shadow-blue-100">
-                    <span class="font-medium text-sm">本月總實收</span>
-                    <span class="text-xl font-bold num-font">$ {{ formatNumber(reportStats.totalNet) }}</span>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-bold text-gray-700">{{ editingId ? '編輯紀錄' : '新增紀錄' }}</h3>
-                    <button @click="showEditModal = false" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex bg-gray-100 p-1 rounded-xl">
-                        <button @click="form.type = 'expense'" :class="['flex-1 py-2 rounded-lg text-sm font-bold', form.type === 'expense' ? 'bg-white shadow text-[#D4A5A5]' : 'text-gray-400']">支出</button>
-                        <button @click="form.type = 'income'" :class="['flex-1 py-2 rounded-lg text-sm font-bold', form.type === 'income' ? 'bg-white shadow text-[#95B8A6]' : 'text-gray-400']">收入</button>
-                    </div>
-                    <div><label class="text-xs text-gray-400 ml-1">日期</label><input type="date" v-model="form.date" class="input-std"></div>
-                    <div><label class="text-xs text-gray-400 ml-1">備註</label><input type="text" v-model="form.item" class="input-std"></div>
-                    <div><label class="text-xs text-gray-400 ml-1">金額</label><input type="number" v-model.number="form.amount" class="input-std font-bold text-lg"></div>
-                    <div><label class="text-xs text-gray-400 ml-1">類別</label><select v-model="form.category" class="input-std"><option v-for="cat in finalCategories" :value="cat">{{ cat }}</option></select></div>
-                </div>
-                <div class="flex gap-4 mt-8">
-                    <button v-if="editingId" @click="deleteCurrentEntry" class="flex-1 py-3 bg-red-50 text-red-400 rounded-xl font-bold">刪除</button>
-                    <button @click="editingId ? submitEdit() : submitFormMobile()" :class="['flex-[2] py-3 text-white rounded-xl font-bold', editingId ? 'bg-[#7B8FA1]' : 'bg-[#7B8FA1]']">{{ editingId ? '儲存' : '新增' }}</button>
-                </div>
-            </div>
-        </div>
-        
-         <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl h-[500px] flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-bold text-gray-700">系統設定</h3>
-                    <button @click="showSettings = false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="overflow-y-auto flex-1 pr-2">
-                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">初始金額</h4>
-                    <div class="space-y-3 mb-6">
-                        <div><label class="text-xs text-gray-400 ml-1">現金初始</label><input type="number" v-model.number="settings.cashInitial" @change="saveSettings" class="input-std font-bold"></div>
-                        <div><label class="text-xs text-gray-400 ml-1">帳戶初始</label><input type="number" v-model.number="settings.accountInitial" @change="saveSettings" class="input-std font-bold"></div>
-                    </div>
-                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">類別管理</h4>
-                    <div class="flex gap-2 mb-3">
-                        <input type="text" v-model="newCategoryName" placeholder="輸入新類別..." class="input-std text-sm" @keyup.enter="addCategory">
-                        <button @click="addCategory" class="bg-[#7B8FA1] text-white px-3 rounded-lg"><i class="fa-solid fa-plus"></i></button>
-                    </div>
-                    <div class="space-y-2">
-                        <div v-for="(cat, index) in settings.customCategories" :key="index" class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg text-sm group">
-                            <span>{{ cat }}</span>
-                            <button @click="removeCategory(index)" class="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </div>
-                </div>
-                <div class="pt-4 border-t border-gray-100 mt-4">
-                    <button @click="showSettings = false" class="w-full py-3 bg-gray-800 text-white rounded-xl font-bold">完成</button>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="showReconcileModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-bold text-gray-700">帳務核對</h3>
-                    <button @click="showReconcileModal = false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="bg-gray-50 p-6 rounded-2xl mb-6 text-center border border-gray-100">
-                    <div class="text-xs text-gray-400 uppercase">系統餘額</div>
-                    <div class="text-3xl font-bold num-font text-gray-800 mt-2">$ {{ formatNumber(monthEndBalance) }}</div>
-                </div>
-                <button @click="addReconciliation" class="w-full py-3.5 rounded-xl font-bold text-white transition bg-[#95B8A6] shadow-lg shadow-green-100">
-                    確認餘額無誤，核對！
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module">
-        import { createApp, ref, computed, onMounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
-            authDomain: "ossen-money.firebaseapp.com",
-            projectId: "ossen-money",
-            storageBucket: "ossen-money.firebasestorage.app",
-            messagingSenderId: "910508291691",
-            appId: "1:910508291691:web:cf44c7a77a5ea9e878232e",
-            measurementId: "G-H1PR0LZZ4Q"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        createApp({
-            setup() {
-                const role = ref(localStorage.getItem('ln_role') || null);
-                const pinInput = ref('');
-                const loginError = ref(false);
-                const isAdmin = computed(() => role.value === 'admin');
-
-                const currentTab = ref('cash');
-                const currentMonth = ref(new Date().toISOString().slice(0, 7));
-                const transactions = ref([]);
-                const settings = ref({ cashInitial: 0, accountInitial: 0, customCategories: [] });
-                const reconciliations = ref([]);
-                const searchQuery = ref('');
-                const filterType = ref('all'); 
-                const amountInput = ref(null);
-                const itemInput = ref(null);
-
-                const showSettings = ref(false);
-                const showReconcileModal = ref(false);
-                const showEditModal = ref(false);
-                const showReportModal = ref(false);
-                const isSubmitting = ref(false);
-                const editingId = ref(null);
-                const newCategoryName = ref('');
-
-                const defaultCategories = ['客戶訂金尾款', '貨款支出', '運費', '雜物支出', '薪資', '其他'];
-                const form = ref({ date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' });
-
-                const checkPin = () => {
-                    if (pinInput.value === '671213') setRole('admin');
-                    else if (pinInput.value === '45688123') setRole('viewer');
-                    else { loginError.value = true; pinInput.value = ''; setTimeout(()=>loginError.value=false, 1500); }
-                };
-                const setRole = (r) => { role.value = r; localStorage.setItem('ln_role', r); pinInput.value = ''; };
-                const logout = () => { role.value = null; localStorage.removeItem('ln_role'); };
-
-                onMounted(() => {
-                    onSnapshot(query(collection(db, "transactions"), orderBy("date", "desc")), (snap) => {
-                        let temp = [];
-                        snap.forEach(d => temp.push({ id: d.id, ...d.data() }));
-                        temp.sort((a, b) => {
-                            if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
-                            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-                        });
-                        transactions.value = temp;
+            // 修正：新增資料時強制寫入當前 Tab
+            const submitForm = async () => {
+                if (!form.value.item || !form.value.amount || isSubmitting.value) return;
+                isSubmitting.value = true;
+                try {
+                    await addDoc(collection(db, "transactions"), { 
+                        ...form.value, 
+                        tab: currentTab.value, // 這裡確保了是寫入 'cash' 或 'account'
+                        createdAt: new Date() 
                     });
-                    onSnapshot(doc(db, "settings", "general"), (d) => {
-                        if(d.exists()) {
-                            const data = d.data();
-                            settings.value = { 
-                                cashInitial: data.cashInitial || 0,
-                                accountInitial: data.accountInitial || 0,
-                                customCategories: data.customCategories || [] 
-                            };
-                        } else setDoc(d.ref, settings.value);
-                    });
-                    onSnapshot(query(collection(db, "reconciliations"), orderBy("date", "desc")), (snap) => {
-                        let temp = []; snap.forEach(d => temp.push({ id: d.id, ...d.data() }));
-                        reconciliations.value = temp;
-                    });
-                });
-
-                const filteredEntries = computed(() => {
-                    return transactions.value.filter(t => {
-                        if (t.ledger !== currentTab.value) return false;
-                        if (!t.date.startsWith(currentMonth.value)) return false;
-                        if (filterType.value === 'income' && t.type !== 'income') return false;
-                        if (filterType.value === 'expense' && t.type !== 'expense') return false;
-                        if (searchQuery.value) {
-                            const q = searchQuery.value.toLowerCase();
-                            return t.item.toLowerCase().includes(q) || t.amount.toString().includes(q);
-                        }
-                        return true;
-                    });
-                });
-
-                const monthStartBalance = computed(() => {
-                    const init = currentTab.value === 'cash' ? settings.value.cashInitial : settings.value.accountInitial;
-                    const prev = transactions.value.filter(t => t.ledger === currentTab.value && t.date < currentMonth.value + "-01");
-                    return (init||0) + prev.reduce((a,b) => a + (b.type==='income'?b.amount:-b.amount), 0);
-                });
-                const monthTotalIncome = computed(() => filteredEntries.value.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0));
-                const monthTotalExpense = computed(() => filteredEntries.value.filter(t=>t.type==='expense').reduce((a,b)=>a+b.amount,0));
-                const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
-                
-                const reportStats = computed(() => {
-                    const allMonthTrans = transactions.value.filter(t => t.date.startsWith(currentMonth.value));
-                    const cashInc = allMonthTrans.filter(t => t.ledger === 'cash' && t.type === 'income').reduce((a,b)=>a+b.amount,0);
-                    const cashExp = allMonthTrans.filter(t => t.ledger === 'cash' && t.type === 'expense').reduce((a,b)=>a+b.amount,0);
-                    const accInc = allMonthTrans.filter(t => t.ledger === 'account' && t.type === 'income').reduce((a,b)=>a+b.amount,0);
-                    const accExp = allMonthTrans.filter(t => t.ledger === 'account' && t.type === 'expense').reduce((a,b)=>a+b.amount,0);
-                    const cashNet = cashInc - cashExp;
-                    const accountNet = accInc - accExp;
-                    return {
-                        cashIncome: cashInc, cashExpense: cashExp, cashNet: cashNet,
-                        accountIncome: accInc, accountExpense: accExp, accountNet: accountNet,
-                        totalNet: cashNet + accountNet
-                    };
-                });
-
-                const finalCategories = computed(() => [...defaultCategories, ...settings.value.customCategories]);
-                const recentReconciliations = computed(() => reconciliations.value.filter(r => r.ledger === currentTab.value));
-                const reconciliationMap = computed(() => {
-                    const map = {};
-                    recentReconciliations.value.forEach(r => {
-                        if(r.lastTransactionId) {
-                            map[r.lastTransactionId] = r;
-                        }
-                    });
-                    return map;
-                });
-                
-                const isCheckedThisMonth = computed(() => recentReconciliations.value.length > 0 && new Date(recentReconciliations.value[0].date).getMonth() === new Date().getMonth());
-                const lastReconciledTime = computed(() => {
-                    if (recentReconciliations.value.length > 0) {
-                        return formatReconcileTime(recentReconciliations.value[0].date);
-                    }
-                    return null;
-                });
-
-                const changeMonth = (offset) => {
-                    const d = new Date(currentMonth.value + "-01");
-                    d.setMonth(d.getMonth() + offset);
-                    currentMonth.value = d.toISOString().slice(0, 7);
-                };
-                const focusAmount = () => amountInput.value.focus();
-                
-                const submitForm = async () => {
-                    if (!form.value.item || !form.value.amount) return;
-                    isSubmitting.value = true;
-                    await addDoc(collection(db, "transactions"), { ...form.value, ledger: currentTab.value, amount: Number(form.value.amount), createdAt: new Date() });
-                    form.value.amount = ''; form.value.item = '';
+                    form.value.item = ''; 
+                    form.value.amount = '';
+                    if(itemInput.value) itemInput.value.focus();
+                } catch (e) {
+                    console.error("寫入錯誤:", e);
+                    alert("儲存失敗，請檢查網路或權限");
+                } finally {
                     isSubmitting.value = false;
-                    nextTick(() => { if(itemInput.value) itemInput.value.focus(); });
-                };
+                }
+            };
 
-                const submitFormMobile = async () => {
-                    if (!form.value.item || !form.value.amount) return;
-                    isSubmitting.value = true;
-                    await addDoc(collection(db, "transactions"), { ...form.value, ledger: currentTab.value, amount: Number(form.value.amount), createdAt: new Date() });
-                    form.value.amount = ''; form.value.item = '';
-                    isSubmitting.value = false;
+            // 修正：修改資料時應保持原本的 Tab，除非有特殊需求
+            const submitEdit = async () => {
+                if (!editingId.value) return;
+                try {
+                    const { id, ...updateData } = form.value;
+                    await updateDoc(doc(db, "transactions", editingId.value), updateData);
+                    showEditModal.value = false;
+                    editingId.value = null;
+                } catch (e) {
+                    console.error("更新錯誤:", e);
+                }
+            };
+
+            const handleEntryClick = (entry) => {
+                if (!isAdmin.value) return;
+                editingId.value = entry.id;
+                form.value = JSON.parse(JSON.stringify(entry)); // 深拷貝防止直接更動
+                showEditModal.value = true;
+            };
+
+            const deleteCurrentEntry = async () => {
+                if (confirm('確定要刪除這筆紀錄嗎？')) {
+                    await deleteDoc(doc(db, "transactions", editingId.value));
                     showEditModal.value = false;
                 }
+            };
 
-                const addCategory = async () => { if(!newCategoryName.value) return; settings.value.customCategories.push(newCategoryName.value); await saveSettings(); newCategoryName.value = ''; };
-                const removeCategory = async (index) => { if(confirm("刪除此類別？")) { settings.value.customCategories.splice(index, 1); await saveSettings(); }};
+            const checkPin = () => {
+                if (pinInput.value === '8888') { role.value = 'admin'; localStorage.setItem('ln_role', 'admin'); }
+                else if (pinInput.value === '1234') { role.value = 'viewer'; localStorage.setItem('ln_role', 'viewer'); }
+                else { loginError.value = true; setTimeout(() => loginError.value = false, 2000); }
+                pinInput.value = '';
+            };
 
-                const handleEntryClick = (entry) => { 
-                    if(isAdmin.value) { 
-                        editingId.value = entry.id; 
-                        form.value = {...entry}; 
-                        showEditModal.value = true; 
+            // 輔助函式
+            const formatNumber = (n) => Number(n || 0).toLocaleString();
+            const formatDateShort = (d) => d ? d.split('-').slice(1).join('/') : '';
+            const logout = () => { role.value = null; localStorage.removeItem('ln_role'); };
+            const changeMonth = (val) => {
+                const d = new Date(currentMonth.value + "-01");
+                d.setMonth(d.getMonth() + val);
+                currentMonth.value = d.toISOString().slice(0, 7);
+            };
+
+            return {
+                role, pinInput, loginError, isAdmin, currentTab, currentMonth, transactions, settings, 
+                searchQuery, filterType, showSettings, showReconcileModal, showEditModal, showReportModal,
+                isSubmitting, form, editingId, newCategoryName, finalCategories, filteredEntries,
+                monthStartBalance, monthTotalIncome, monthTotalExpense, monthEndBalance,
+                amountInput, itemInput,
+                checkPin, logout, changeMonth, formatNumber, formatDateShort,
+                submitForm, handleEntryClick, submitEdit, deleteCurrentEntry,
+                addCategory: async () => {
+                    if(newCategoryName.value) {
+                        settings.value.customCategories.push(newCategoryName.value);
+                        newCategoryName.value = '';
+                        await setDoc(doc(db, "settings", "global"), settings.value);
                     }
-                };
-                const submitEdit = async () => { await updateDoc(doc(db, "transactions", editingId.value), form.value); showEditModal.value = false; form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; };
-                const deleteCurrentEntry = async () => { if(confirm("刪除？")) await deleteDoc(doc(db, "transactions", editingId.value)); showEditModal.value = false; };
-                const saveSettings = async () => await setDoc(doc(db, "settings", "general"), settings.value);
-                
-                const addReconciliation = async () => {
-                    if(!isAdmin.value) return;
-                    const latestTx = filteredEntries.value.length > 0 ? filteredEntries.value[0] : null;
-                    await addDoc(collection(db, "reconciliations"), { 
-                        date: new Date().toISOString(), 
-                        ledger: currentTab.value, 
-                        amount: monthEndBalance.value,
-                        lastTransactionId: latestTx ? latestTx.id : null 
-                    });
-                    showReconcileModal.value = false;
-                };
-
-                const formatNumber = (num) => new Intl.NumberFormat().format(num);
-                const formatDateShort = (str) => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; };
-                const formatReconcileTime = (str) => {
-                    const d = new Date(str);
-                    const m = (d.getMonth() + 1).toString().padStart(2, '0');
-                    const day = d.getDate().toString().padStart(2, '0');
-                    const h = d.getHours().toString().padStart(2, '0');
-                    const min = d.getMinutes().toString().padStart(2, '0');
-                    return `${m}/${day} ${h}:${min}`;
-                };
-
-                return {
-                    role, isAdmin, pinInput, loginError, checkPin, logout,
-                    currentTab, currentMonth, filteredEntries, 
-                    monthStartBalance, monthTotalIncome, monthTotalExpense, monthEndBalance,
-                    reportStats,
-                    form, settings, searchQuery, amountInput, itemInput, filterType,
-                    showSettings, showReconcileModal, showEditModal, showReportModal, isSubmitting, editingId,
-                    finalCategories, newCategoryName, isCheckedThisMonth, lastReconciledTime, reconciliationMap,
-                    changeMonth, submitForm, submitFormMobile, focusAmount, handleEntryClick, submitEdit, deleteCurrentEntry, saveSettings, addReconciliation, addCategory, removeCategory,
-                    formatNumber, formatDateShort, formatReconcileTime
-                };
-            }
-        }).mount('#app');
-    </script>
-</body>
-</html>
+                }
+            };
+        }
+    }).mount('#app');
+</script>
