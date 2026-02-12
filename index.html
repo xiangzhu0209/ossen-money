@@ -25,7 +25,7 @@
         .num-font { font-family: 'Varela Round', sans-serif; font-weight: 600; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 4px; }
-
+        
         .nav-item { display: flex; align-items: center; padding: 12px 20px; margin-bottom: 8px; border-radius: 12px; color: #718096; transition: 0.2s; cursor: pointer; font-weight: 500; }
         .nav-item:hover { background-color: #EDF2F7; color: var(--primary); transform: translateX(4px); }
         .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3); }
@@ -56,7 +56,7 @@
 </head>
 <body>
     <div id="app" v-cloak class="flex flex-col md:flex-row h-screen w-full">
-
+        
         <div v-if="!role" class="fixed inset-0 z-50 bg-[#F5F7FA] flex items-center justify-center p-6">
             <div class="bg-white p-8 md:p-10 rounded-[32px] shadow-xl w-full max-w-md text-center">
                 <div class="w-20 h-20 bg-[#EDF2F7] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-[#7B8FA1]"><i class="fa-solid fa-laptop-file"></i></div>
@@ -138,8 +138,6 @@
                                 <div class="absolute right-0 top-0 w-24 h-24 bg-[#7B8FA1]/10 rounded-bl-[60px]"></div>
                                 <div class="text-sm text-gray-400 font-medium mb-1">本月期末餘額</div>
                                 <div class="text-3xl font-bold text-gray-800 num-font tracking-tight">$ {{ formatNumber(monthEndBalance) }}</div>
-                                <div class="mt-4 text-xs text-gray-400">
-                                    <span :class="isCheckedThisMonth ? 'text-green-500' : 'text-gray-300'"><i class="fa-solid fa-circle-check mr-1"></i>{{ isCheckedThisMonth ? '本月已核對' : '尚未核對' }}</span>
                                 <div class="mt-4 text-xs">
                                     <span v-if="lastReconciledTime" class="text-green-600 bg-green-50 px-2 py-1 rounded-lg">
                                         <i class="fa-solid fa-check-double mr-1"></i>核對於 {{ lastReconciledTime }}
@@ -200,7 +198,6 @@
                                     <tr v-for="entry in filteredEntries" :key="entry.id" :class="['hover:bg-gray-50 transition group', isAdmin ? 'cursor-pointer' : '']" @click="handleEntryClick(entry)">
                                         <td class="p-4 text-gray-500 text-sm font-medium">{{ formatDateShort(entry.date) }}</td>
                                         <td class="p-4"><span :class="['px-2 py-1 rounded text-xs font-bold', entry.type === 'income' ? 'bg-[#95B8A6]/10 text-[#5F8C76]' : 'bg-[#D4A5A5]/10 text-[#C07676]']">{{ entry.type === 'income' ? '收入' : '支出' }}</span></td>
-                                        <td class="p-4 text-gray-800 font-bold text-sm">{{ entry.item }}</td>
                                         <td class="p-4">
                                             <div class="text-gray-800 font-bold text-sm">{{ entry.item }}</div>
                                             <div v-if="reconciliationMap[entry.id]" class="reconcile-badge">
@@ -217,16 +214,6 @@
                             </table>
 
                             <div class="md:hidden divide-y divide-gray-100">
-                                <div v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="p-4 flex justify-between items-center active:bg-gray-50">
-                                    <div class="flex items-center gap-3 overflow-hidden">
-                                        <div :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs shadow-sm', entry.type === 'income' ? 'bg-[#95B8A6]' : 'bg-[#D4A5A5]']">
-                                            {{ entry.type === 'income' ? '收' : '支' }}
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="font-bold text-gray-700 truncate text-sm mb-1">{{ entry.item }}</div>
-                                            <div class="flex items-center gap-2 text-xs text-gray-400">
-                                                <span>{{ formatDateShort(entry.date) }}</span>
-                                                <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category }}</span>
                                 <div v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="p-4 active:bg-gray-50">
                                     <div class="flex justify-between items-center">
                                         <div class="flex items-center gap-3 overflow-hidden">
@@ -245,8 +232,6 @@
                                             {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
                                         </div>
                                     </div>
-                                    <div :class="['font-bold num-font text-base', entry.type === 'income' ? 'text-[#95B8A6]' : 'text-[#D4A5A5]']">
-                                        {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
                                     <div v-if="reconciliationMap[entry.id]" class="mt-2 ml-14">
                                         <div class="reconcile-badge">
                                             <i class="fa-solid fa-check mr-1"></i>
@@ -317,7 +302,7 @@
                 </div>
             </div>
         </div>
-
+        
          <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl h-[500px] flex flex-col">
                 <div class="flex justify-between items-center mb-6">
@@ -358,8 +343,6 @@
                     <div class="text-xs text-gray-400 uppercase">系統餘額</div>
                     <div class="text-3xl font-bold num-font text-gray-800 mt-2">$ {{ formatNumber(monthEndBalance) }}</div>
                 </div>
-                <button @click="addReconciliation" :disabled="isCheckedThisMonth" :class="['w-full py-3.5 rounded-xl font-bold text-white transition', isCheckedThisMonth ? 'bg-gray-300' : 'bg-[#95B8A6]']">
-                    {{ isCheckedThisMonth ? '本月已核對' : '確認無誤，核對！' }}
                 <button @click="addReconciliation" class="w-full py-3.5 rounded-xl font-bold text-white transition bg-[#95B8A6] shadow-lg shadow-green-100">
                     確認餘額無誤，核對！
                 </button>
@@ -469,7 +452,7 @@
                 const monthTotalIncome = computed(() => filteredEntries.value.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0));
                 const monthTotalExpense = computed(() => filteredEntries.value.filter(t=>t.type==='expense').reduce((a,b)=>a+b.amount,0));
                 const monthEndBalance = computed(() => monthStartBalance.value + monthTotalIncome.value - monthTotalExpense.value);
-
+                
                 const reportStats = computed(() => {
                     const allMonthTrans = transactions.value.filter(t => t.date.startsWith(currentMonth.value));
                     const cashInc = allMonthTrans.filter(t => t.ledger === 'cash' && t.type === 'income').reduce((a,b)=>a+b.amount,0);
@@ -511,7 +494,7 @@
                     currentMonth.value = d.toISOString().slice(0, 7);
                 };
                 const focusAmount = () => amountInput.value.focus();
-
+                
                 const submitForm = async () => {
                     if (!form.value.item || !form.value.amount) return;
                     isSubmitting.value = true;
@@ -543,7 +526,6 @@
                 const submitEdit = async () => { await updateDoc(doc(db, "transactions", editingId.value), form.value); showEditModal.value = false; form.value = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; };
                 const deleteCurrentEntry = async () => { if(confirm("刪除？")) await deleteDoc(doc(db, "transactions", editingId.value)); showEditModal.value = false; };
                 const saveSettings = async () => await setDoc(doc(db, "settings", "general"), settings.value);
-                const addReconciliation = async () => { if(!isAdmin.value) return; await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), ledger: currentTab.value, amount: monthEndBalance.value }); };
                 
                 const addReconciliation = async () => {
                     if(!isAdmin.value) return;
@@ -575,10 +557,8 @@
                     reportStats,
                     form, settings, searchQuery, amountInput, itemInput, filterType,
                     showSettings, showReconcileModal, showEditModal, showReportModal, isSubmitting, editingId,
-                    finalCategories, newCategoryName, isCheckedThisMonth,
                     finalCategories, newCategoryName, isCheckedThisMonth, lastReconciledTime, reconciliationMap,
                     changeMonth, submitForm, submitFormMobile, focusAmount, handleEntryClick, submitEdit, deleteCurrentEntry, saveSettings, addReconciliation, addCategory, removeCategory,
-                    formatNumber, formatDateShort
                     formatNumber, formatDateShort, formatReconcileTime
                 };
             }
