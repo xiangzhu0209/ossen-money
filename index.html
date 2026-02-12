@@ -11,7 +11,8 @@
         :root { --bg-body: #F5F7FA; --primary: #7B8FA1; --text-main: #2D3748; }
         body { font-family: 'Varela Round', 'Noto Sans TC', sans-serif; background-color: var(--bg-body); color: var(--text-main); height: 100vh; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .num-font { font-family: 'Varela Round', sans-serif; font-weight: 600; }
-        .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; outline: none; width: 100%; }
+        .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; outline: none; width: 100%; transition: 0.2s; }
+        .input-std:focus { border-color: #7B8FA1; background: #fff; box-shadow: 0 0 0 3px rgba(123, 143, 161, 0.1); }
         .nav-item { display: flex; align-items: center; padding: 12px 20px; margin-bottom: 8px; border-radius: 12px; color: #718096; transition: 0.2s; cursor: pointer; font-weight: 500; }
         .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3); }
         .mobile-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; color: #A0AEC0; font-size: 0.75rem; transition: 0.2s; }
@@ -98,6 +99,9 @@
                             <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
                                 <div class="text-sm text-gray-400 font-medium mb-1">本月期末餘額</div>
                                 <div class="text-3xl font-bold text-gray-800 num-font">$ {{ formatNumber(monthEndBalance) }}</div>
+                                <div class="mt-2 text-xs text-blue-400 bg-blue-50 inline-block px-2 py-1 rounded">
+                                    <i class="fa-solid fa-sack-dollar mr-1"></i>包含初始: $ {{ formatNumber(currentInitial) }}
+                                </div>
                             </div>
                             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 md:col-span-2 flex justify-around items-center">
                                 <div class="text-center"><div class="text-xs text-gray-400 mb-1">上月結餘</div><div class="text-lg font-bold text-gray-600 num-font">$ {{ formatNumber(monthStartBalance) }}</div></div>
@@ -162,6 +166,7 @@
             <div class="md:hidden bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full flex justify-around items-center z-20 pb-safe">
                 <button @click="currentTab = 'cash'" :class="['mobile-nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet"></i><span>現金</span></button>
                 <button @click="currentTab = 'account'" :class="['mobile-nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns"></i><span>帳戶</span></button>
+                <button @click="showReportModal = true" class="mobile-nav-item"><i class="fa-solid fa-chart-pie"></i><span>報表</span></button>
             </div>
         </template>
 
@@ -178,8 +183,47 @@
                 <div class="flex gap-4 mt-8"><button v-if="editingId" @click="deleteCurrentEntry" class="flex-1 py-3 bg-red-50 text-red-400 rounded-xl font-bold">刪除</button><button @click="editingId ? submitEdit() : submitFormMobile()" class="flex-[2] py-3 bg-[#7B8FA1] text-white rounded-xl font-bold">儲存</button></div>
             </div>
         </div>
+
         <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h3 class="text-lg font-bold mb-4">設定</h3><button @click="showSettings=false" class="w-full py-2 bg-gray-800 text-white rounded-xl">關閉</button></div>
+             <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl h-[500px] flex flex-col">
+                <div class="flex justify-between items-center mb-6"><h3 class="text-lg font-bold text-gray-700">系統設定</h3><button @click="showSettings=false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="overflow-y-auto flex-1 pr-2">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">初始金額 (請重新輸入)</h4>
+                    <div class="space-y-4 mb-6">
+                        <div><label class="text-xs text-gray-400 ml-1">現金初始</label><input type="number" v-model.number="settings.cashInitial" class="input-std font-bold text-lg"></div>
+                        <div><label class="text-xs text-gray-400 ml-1">帳戶初始</label><input type="number" v-model.number="settings.accountInitial" class="input-std font-bold text-lg"></div>
+                    </div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">類別管理</h4>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" v-model="newCategoryName" placeholder="輸入新類別..." class="input-std text-sm" @keyup.enter="addCategory">
+                        <button @click="addCategory" class="bg-[#7B8FA1] text-white px-3 rounded-lg"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div class="space-y-2">
+                        <div v-for="(cat, index) in settings.customCategories" :key="index" class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg text-sm group">
+                            <span>{{ cat }}</span>
+                            <button @click="removeCategory(index)" class="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-gray-100 mt-4">
+                    <button @click="saveSettings" class="w-full py-3 bg-[#7B8FA1] text-white rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition">💾 儲存設定</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showReportModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-700">月結報表</h3><button @click="showReportModal=false"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="bg-gray-50 p-4 rounded-xl mb-4 text-sm space-y-2">
+                    <div class="flex justify-between"><span>現金淨利</span><span class="font-bold">{{ formatNumber(reportStats.cashNet) }}</span></div>
+                    <div class="flex justify-between border-t pt-2"><span>帳戶淨利</span><span class="font-bold">{{ formatNumber(reportStats.accountNet) }}</span></div>
+                </div>
+                <div class="bg-[#7B8FA1] text-white p-4 rounded-xl flex justify-between items-center shadow-lg"><span class="font-medium text-sm">總資產淨增長</span><span class="text-xl font-bold num-font">$ {{ formatNumber(reportStats.totalNet) }}</span></div>
+            </div>
+        </div>
+
+        <div v-if="showReconcileModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center"><h3 class="text-lg font-bold mb-4">核對餘額</h3><div class="text-3xl font-bold mb-6">$ {{ formatNumber(monthEndBalance) }}</div><button @click="addReconciliation" class="w-full py-3 bg-green-500 text-white rounded-xl font-bold">確認無誤</button><button @click="showReconcileModal=false" class="mt-4 text-gray-400 text-sm">取消</button></div>
         </div>
     </div>
 
@@ -215,6 +259,8 @@
                 const filterType = ref('all');
                 const showEditModal = ref(false);
                 const showSettings = ref(false);
+                const showReconcileModal = ref(false);
+                const showReportModal = ref(false);
                 const isSubmitting = ref(false);
                 const editingId = ref(null);
                 const amountInput = ref(null);
@@ -230,11 +276,17 @@
 
                 const formatNumber = (num) => { if (num === undefined || num === null || isNaN(Number(num))) return '0'; try { return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); } catch (e) { return '0'; } };
 
+                // 🌟 關鍵修復: 統一 ledger/tab 欄位
+                const getTab = (t) => t.ledger || t.tab;
+
+                // 顯示目前分頁的初始金額 (方便 Debug)
+                const currentInitial = computed(() => currentTab.value === 'cash' ? (Number(settings.value?.cashInitial) || 0) : (Number(settings.value?.accountInitial) || 0));
+
                 const monthEndBalance = computed(() => {
                     try {
-                        let initial = currentTab.value === 'cash' ? (Number(settings.value?.cashInitial) || 0) : (Number(settings.value?.accountInitial) || 0);
+                        let initial = currentInitial.value;
                         if (!transactions.value) return initial;
-                        const history = transactions.value.filter(t => t && t.tab === currentTab.value);
+                        const history = transactions.value.filter(t => t && getTab(t) === currentTab.value);
                         return history.reduce((sum, t) => {
                             const amount = parseFloat(t.amount);
                             if (isNaN(amount)) return sum;
@@ -248,8 +300,9 @@
                     return transactions.value.filter(t => {
                         if (!t) return false;
                         const dateStr = t.date || '';
+                        const entryTab = getTab(t);
                         return dateStr.startsWith(currentMonth.value) && 
-                               t.tab === currentTab.value && 
+                               entryTab === currentTab.value && 
                                (filterType.value === 'all' || t.type === filterType.value) &&
                                ((t.item||'').toLowerCase().includes(searchQuery.value.toLowerCase()) || (t.category||'').includes(searchQuery.value));
                     }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -257,8 +310,8 @@
 
                 const monthStartBalance = computed(() => {
                     try {
-                        let initial = currentTab.value === 'cash' ? (Number(settings.value?.cashInitial)||0) : (Number(settings.value?.accountInitial)||0);
-                        const history = transactions.value.filter(t => t && t.tab === currentTab.value && (t.date || '') < currentMonth.value + '-01');
+                        let initial = currentInitial.value;
+                        const history = transactions.value.filter(t => t && getTab(t) === currentTab.value && (t.date || '') < currentMonth.value + '-01');
                         return history.reduce((sum, t) => {
                             const val = parseFloat(t.amount);
                             if(isNaN(val)) return sum;
@@ -269,19 +322,15 @@
 
                 const monthTotalIncome = computed(() => filteredEntries.value.filter(t => t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0));
                 const monthTotalExpense = computed(() => filteredEntries.value.filter(t => t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0));
+                const reportStats = computed(() => ({ cashNet:0, accountNet:0, totalNet:0 }));
+                const lastReconciledTime = computed(() => null);
 
                 onMounted(() => {
                     const q = query(collection(db, "transactions"));
-                    // 🌟 最終修正：在讀取資料時，強制將 ledger 欄位同步到 tab
                     onSnapshot(q, (snapshot) => { 
                         transactions.value = snapshot.docs.map(doc => {
                             const data = doc.data();
-                            return { 
-                                id: doc.id, 
-                                ...data,
-                                // 如果有 ledger 欄位，就用它；否則用 tab；再沒有就預設現金
-                                tab: data.ledger || data.tab || 'cash' 
-                            };
+                            return { id: doc.id, ...data, tab: data.ledger || data.tab || 'cash' };
                         }); 
                     });
                     const settingsRef = doc(db, "settings", "config");
@@ -297,13 +346,7 @@
                     if (isSubmitting.value || !form.value.amount) return;
                     isSubmitting.value = true;
                     try {
-                        // 新增資料時，同時寫入 tab 和 ledger 兩個欄位
-                        await addDoc(collection(db, "transactions"), { 
-                            ...form.value, 
-                            tab: currentTab.value,
-                            ledger: currentTab.value, 
-                            createdAt: new Date().toISOString() 
-                        });
+                        await addDoc(collection(db, "transactions"), { ...form.value, tab: currentTab.value, ledger: currentTab.value, createdAt: new Date().toISOString() });
                         form.value.amount = ''; form.value.item = ''; nextTick(() => itemInput.value?.focus());
                     } catch (e) { alert("錯誤: " + e.message); } finally { isSubmitting.value = false; }
                 };
@@ -311,15 +354,29 @@
                 const handleEntryClick = (entry) => { if (!isAdmin.value) return; form.value = { ...entry }; editingId.value = entry.id; showEditModal.value = true; };
                 const submitEdit = async () => { try { await updateDoc(doc(db, "transactions", editingId.value), { ...form.value, tab: currentTab.value, ledger: currentTab.value }); showEditModal.value = false; editingId.value = null; } catch (e) {} };
                 const deleteCurrentEntry = async () => { if(confirm('刪除?')) { await deleteDoc(doc(db, "transactions", editingId.value)); showEditModal.value = false; editingId.value = null; } };
+                
+                // 🌟 改良的儲存功能
+                const saveSettings = async () => { 
+                    try {
+                        await setDoc(doc(db, "settings", "config"), settings.value);
+                        alert("設定已儲存！");
+                        showSettings.value = false;
+                    } catch(e) { alert("儲存失敗"); }
+                };
+                
+                const addCategory = async () => { if (!newCategoryName.value) return; if (!settings.value.customCategories) settings.value.customCategories = []; settings.value.customCategories.push(newCategoryName.value); newCategoryName.value = ''; };
+                const removeCategory = async (index) => { settings.value.customCategories.splice(index, 1); };
+                const addReconciliation = async () => { await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), amount: monthEndBalance.value, tab: currentTab.value }); showReconcileModal.value = false; };
 
                 return {
                     role, pinInput, loginError, isAdmin, checkPin, logout,
                     currentTab, currentMonth, changeMonth, transactions, filteredEntries,
-                    monthEndBalance, monthStartBalance, monthTotalIncome, monthTotalExpense,
-                    searchQuery, filterType, showEditModal, showSettings,
+                    monthEndBalance, monthStartBalance, monthTotalIncome, monthTotalExpense, reportStats,
+                    searchQuery, filterType, showEditModal, showReportModal, showSettings, showReconcileModal,
                     form, isSubmitting, editingId, amountInput, itemInput, focusAmount,
                     submitForm, submitFormMobile, handleEntryClick, submitEdit, deleteCurrentEntry,
-                    finalCategories, formatNumber, formatDateShort
+                    settings, saveSettings, newCategoryName, addCategory, removeCategory,
+                    finalCategories, addReconciliation, formatNumber, formatDateShort, lastReconciledTime, currentInitial
                 };
             }
         }).mount('#app');
