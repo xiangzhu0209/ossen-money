@@ -112,7 +112,6 @@
                             <select v-model="form.category" class="input-std w-40"><option v-for="cat in finalCategories" :value="cat">{{ cat }}</option></select>
                             <button @click="submitForm" :disabled="isSubmitting" class="w-10 h-10 bg-[#7B8FA1] text-white rounded-lg flex items-center justify-center active:scale-95 transition"><i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin"></i><i v-else class="fa-solid fa-plus"></i></button>
                         </div>
-
                         <button v-if="isAdmin" @click="showEditModal = true; form = { date: new Date().toISOString().split('T')[0], type: 'expense', amount: '', category: '其他', item: '' }; editingId = null;" class="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-[#7B8FA1] text-white rounded-full shadow-xl flex items-center justify-center text-2xl z-30 shadow-blue-200"><i class="fa-solid fa-plus"></i></button>
 
                         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -236,7 +235,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Firebase 設定
         const firebaseConfig = { apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU", authDomain: "ossen-money.firebaseapp.com", projectId: "ossen-money", storageBucket: "ossen-money.firebasestorage.app", messagingSenderId: "910508291691", appId: "1:910508291691:web:cf44c7a77a5ea9e878232e", measurementId: "G-H1PR0LZZ4Q" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -269,19 +267,20 @@
                 const checkPin = () => { if (pinInput.value === '671213') { role.value = 'admin'; localStorage.setItem('ln_role', 'admin'); } else if (pinInput.value === '45688123') { role.value = 'viewer'; localStorage.setItem('ln_role', 'viewer'); } else { loginError.value = true; pinInput.value = ''; setTimeout(() => loginError.value = false, 2000); } };
                 const logout = () => { role.value = null; localStorage.removeItem('ln_role'); };
 
-                // 初始化連線
                 onMounted(() => {
                     onSnapshot(query(collection(db, "transactions")), (snap) => { 
                         transactions.value = snap.docs.map(d => { 
                             const data = d.data(); 
-                            return { id: d.id, ...data, ledger: data.ledger || data.tab || 'cash' }; 
+                            // 🌟 修正點 1：將 id: d.id 放在最後，確保不會被 data 內容覆蓋
+                            return { ...data, id: d.id, ledger: data.ledger || data.tab || 'cash' }; 
                         }); 
                     });
                     onSnapshot(doc(db, "settings", "general"), (d) => { if(d.exists()) settings.value = d.data(); });
-                    onSnapshot(query(collection(db, "reconciliations")), (snap) => { reconciliations.value = snap.docs.map(d => ({ id: d.id, ...d.data() })); });
+                    onSnapshot(query(collection(db, "reconciliations")), (snap) => { 
+                        reconciliations.value = snap.docs.map(d => ({ ...d.data(), id: d.id })); 
+                    });
                 });
 
-                // 計算屬性
                 const filteredEntries = computed(() => transactions.value.filter(t => t.ledger === currentTab.value && t.date.startsWith(currentMonth.value) && (filterType.value === 'all' || t.type === filterType.value) && (!searchQuery.value || t.item.toLowerCase().includes(searchQuery.value.toLowerCase()))).sort((a,b) => new Date(b.date) - new Date(a.date)));
                 const monthStartBalance = computed(() => { const init = currentTab.value === 'cash' ? (Number(settings.value?.cashInitial)||0) : (Number(settings.value?.accountInitial)||0); const prev = transactions.value.filter(t => t.ledger === currentTab.value && t.date < currentMonth.value + "-01"); return init + prev.reduce((a,b) => a + (b.type==='income'?b.amount:-b.amount), 0); });
                 const monthTotalIncome = computed(() => filteredEntries.value.filter(t=>t.type==='income').reduce((a,b)=>a+b.amount,0));
@@ -300,7 +299,6 @@
                 const reconciliationMap = computed(() => { const map = {}; reconciliations.value.filter(r => r.ledger === currentTab.value).forEach(r => { if(r.lastTransactionId) map[r.lastTransactionId] = r; }); return map; });
                 const lastReconciledTime = computed(() => { const rs = reconciliations.value.filter(r => r.ledger === currentTab.value); return rs.length > 0 ? formatReconcileTime(rs.sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date) : null; });
 
-                // 功能函數
                 const changeMonth = (o) => { const d = new Date(currentMonth.value + "-01"); d.setMonth(d.getMonth() + o); currentMonth.value = d.toISOString().slice(0, 7); };
                 const focusAmount = () => amountInput.value.focus();
                 
@@ -320,22 +318,19 @@
                 const handleEntryClick = (e) => { if(isAdmin.value) { editingId.value = e.id; form.value = {...e}; showEditModal.value = true; } };
                 const submitEdit = async () => { try { await updateDoc(doc(db, "transactions", editingId.value), { ...form.value, amount: Number(form.value.amount) }); showEditModal.value = false; } catch(e) { alert("修改失敗"); } };
                 
-                // 🌟 修正後的刪除邏輯：確保 ID 存在且針對單一文件進行 deleteDoc
-                const deleteEntryDirect = async (id) => { 
-                    if(!id) {
-                        alert("無法取得資料 ID，請重新整理頁面。");
-                        return;
-                    }
-                    if(!isAdmin.value) return;
+                // 🌟 修正點 2：強化刪除功能並加入 Debug 訊息
+                const deleteEntryDirect = async (targetId) => { 
+                    if(!targetId) return;
+                    if(!isAdmin.value) { alert("無管理者權限"); return; }
 
-                    if(window.confirm("⚠️ 確定要永久刪除這筆紀錄嗎？這無法還原喔！")) { 
+                    if(window.confirm("⚠️ 確定要永久刪除這筆紀錄嗎？")) { 
                         try {
-                            await deleteDoc(doc(db, "transactions", id)); 
+                            console.log("正在嘗試刪除 ID:", targetId);
+                            await deleteDoc(doc(db, "transactions", targetId)); 
                             if(showEditModal.value) showEditModal.value = false;
-                            // 這裡不用 alert "成功"，因為 Firebase 會透過 onSnapshot 自動更新畫面
                         } catch(e) { 
-                            console.error("刪除錯誤:", e);
-                            alert("❌ 刪除失敗，請檢查權限或網路。"); 
+                            console.error("刪除失敗細節:", e);
+                            alert("❌ 刪除失敗: " + e.message); 
                         }
                     } 
                 };
@@ -345,7 +340,6 @@
                 const removeCategory = (i) => settings.value.customCategories.splice(i, 1);
                 const addReconciliation = async () => { if(!isAdmin.value) return; const latest = filteredEntries.value.length > 0 ? filteredEntries.value[0] : null; await addDoc(collection(db, "reconciliations"), { date: new Date().toISOString(), ledger: currentTab.value, amount: monthEndBalance.value, lastTransactionId: latest ? latest.id : null }); showReconcileModal.value = false; };
                 
-                // 格式化函數
                 const formatNumber = (num) => new Intl.NumberFormat().format(num || 0);
                 const formatDateShort = (s) => { if(!s) return '-'; const d = new Date(s); return `${d.getMonth()+1}/${d.getDate()}`; };
                 const formatReconcileTime = (s) => { const d = new Date(s); return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; };
