@@ -157,7 +157,7 @@
                 currentMonth.value = d.toISOString().slice(0, 7);
             };
 
-            return {
+           return {
                 role, pinInput, loginError, isAdmin, currentTab, currentMonth, transactions, settings, 
                 searchQuery, filterType, showSettings, showReconcileModal, showEditModal, showReportModal,
                 isSubmitting, form, editingId, newCategoryName, finalCategories, filteredEntries,
@@ -174,5 +174,15 @@
                 }
             };
         }
-    }).mount('#app');
+    });
+
+    // 關鍵修正：確保 DOM 載入後才掛載 Vue
+    document.addEventListener('DOMContentLoaded', () => {
+        const appElement = document.getElementById('app');
+        if (appElement) {
+            app.mount('#app');
+        } else {
+            console.error("找不到 #app 元素，請檢查 HTML 結構是否包含 <div id='app'>");
+        }
+    });
 </script>
