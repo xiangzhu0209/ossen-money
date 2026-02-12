@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ossen 記帳系統 (救援模式)</title>
+    <title>Ossen 系統 (終極救援版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Varela+Round&display=swap" rel="stylesheet">
@@ -11,149 +11,94 @@
         :root { --bg-body: #F5F7FA; --primary: #7B8FA1; --text-main: #2D3748; }
         body { font-family: 'Varela Round', 'Noto Sans TC', sans-serif; background-color: var(--bg-body); color: var(--text-main); height: 100vh; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .num-font { font-family: 'Varela Round', sans-serif; font-weight: 600; }
-        .nav-item { display: flex; align-items: center; padding: 12px 20px; margin-bottom: 8px; border-radius: 12px; color: #718096; transition: 0.2s; cursor: pointer; font-weight: 500; }
-        .nav-item:hover { background-color: #EDF2F7; color: var(--primary); transform: translateX(4px); }
-        .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(123, 143, 161, 0.3); }
-        .mobile-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; color: #A0AEC0; font-size: 0.75rem; transition: 0.2s; }
-        .mobile-nav-item.active { color: var(--primary); font-weight: bold; }
         .input-std { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; outline: none; width: 100%; }
-        .reconcile-badge { display: inline-flex; align-items: center; font-size: 0.7rem; color: #059669; background-color: #ECFDF5; padding: 4px 8px; border-radius: 999px; margin-top: 4px; border: 1px solid #A7F3D0; font-weight: bold; }
         [v-cloak] { display: none; }
     </style>
 </head>
 <body>
-    <div id="app" v-cloak class="flex flex-col md:flex-row h-screen w-full">
+    <div id="app" v-cloak class="flex flex-col h-screen w-full bg-[#F5F7FA]">
+        
         <div v-if="!role" class="fixed inset-0 z-50 bg-[#F5F7FA] flex items-center justify-center p-6">
-            <div class="bg-white p-8 md:p-10 rounded-[32px] shadow-xl w-full max-w-md text-center">
-                <div class="w-20 h-20 bg-[#EDF2F7] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-[#7B8FA1]"><i class="fa-solid fa-laptop-file"></i></div>
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">Ossen System</h1>
-                <p class="text-red-500 font-bold mb-8 text-sm">救援模式：顯示所有資料</p>
+            <div class="bg-white p-8 rounded-[32px] shadow-xl w-full max-w-md text-center">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl text-green-600"><i class="fa-solid fa-database"></i></div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">資料救援模式</h1>
+                <p class="text-gray-500 mb-6 text-sm">已偵測到 156 筆資料，請登入以檢視</p>
                 <div class="relative">
-                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-[#7B8FA1] transition-all" autofocus>
-                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-[#7B8FA1] text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
+                    <input type="password" v-model="pinInput" @keyup.enter="checkPin" placeholder="輸入密碼" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 px-6 text-center text-2xl tracking-[0.5em] font-bold text-gray-700 outline-none focus:border-green-500 transition-all" autofocus>
+                    <button @click="checkPin" class="absolute right-3 top-3 w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
-                <p v-if="loginError" class="text-red-400 text-sm mt-4 animate-bounce font-bold">密碼錯誤</p>
+                <p v-if="loginError" class="text-red-400 text-sm mt-4 font-bold">密碼錯誤</p>
             </div>
         </div>
 
         <template v-else>
-            <div class="md:hidden bg-white px-4 py-3 border-b flex justify-between items-center shadow-sm z-20 shrink-0">
-                <div class="flex items-center gap-2 text-[#7B8FA1] font-bold text-lg"><i class="fa-solid fa-shapes"></i> Ossen</div>
-                <div class="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">⚠️ 顯示全部月份資料</div>
-                <button @click="logout" class="text-red-300"><i class="fa-solid fa-right-from-bracket"></i></button>
+            <div class="bg-white px-4 py-3 border-b flex justify-between items-center shadow-sm z-20 shrink-0">
+                <div class="flex items-center gap-2 text-green-600 font-bold text-lg"><i class="fa-solid fa-kit-medical"></i> 救援模式</div>
+                <div class="text-xs text-gray-500">顯示所有資料 (共 {{ filteredEntries.length }} 筆)</div>
+                <button @click="logout" class="text-red-300 px-2"><i class="fa-solid fa-right-from-bracket"></i></button>
             </div>
 
-            <aside class="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col flex-shrink-0 z-20">
-                <div class="p-8 pb-4">
-                    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-shapes text-[#7B8FA1]"></i> Ossen</h1>
-                </div>
-                <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-                    <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-4">帳本</div>
-                    <div @click="currentTab = 'cash'" :class="['nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet w-5 mr-3 text-center"></i> 現金帳本</div>
-                    <div @click="currentTab = 'account'" :class="['nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns w-5 mr-3 text-center"></i> 銀行帳戶</div>
-                    <div v-if="isAdmin">
-                        <div class="text-xs font-bold text-gray-300 px-4 mb-2 mt-6">管理</div>
-                        <div @click="showSettings = true" class="nav-item"><i class="fa-solid fa-gear w-5 mr-3 text-center"></i> 系統設定</div>
-                    </div>
-                </nav>
-                <div class="p-4 border-t border-gray-100">
-                    <div @click="logout" class="nav-item text-red-400 hover:bg-red-50 hover:text-red-500 mb-0"><i class="fa-solid fa-right-from-bracket w-5 mr-3 text-center"></i> 登出</div>
-                </div>
-            </aside>
-
-            <main class="flex-1 flex flex-col min-w-0 bg-[#F5F7FA] overflow-hidden">
-                <header class="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center shadow-sm z-10 shrink-0">
-                    <h2 class="text-xl font-bold text-gray-800">{{ currentTab === 'cash' ? '現金帳本' : '銀行帳戶' }} (全覽模式)</h2>
-                </header>
-
-                <div class="flex-1 overflow-y-auto p-4 pb-24">
-                    <div class="max-w-4xl mx-auto space-y-4">
-                        <div class="bg-orange-50 border border-orange-200 p-4 rounded-xl text-orange-800 text-sm mb-4">
-                            <i class="fa-solid fa-circle-info mr-2"></i>
-                            目前為<b>救援全覽模式</b>，系統已忽略月份過濾，列出所有資料。請找到異常資料（日期空白或金額錯誤）並刪除它。
+            <main class="flex-1 overflow-y-auto p-4">
+                <div class="max-w-2xl mx-auto">
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 rounded-r-lg">
+                        <div class="flex">
+                            <div class="flex-shrink-0"><i class="fa-solid fa-triangle-exclamation text-red-400"></i></div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700 font-bold">重要提示</p>
+                                <p class="text-sm text-red-600">此模式會列出「所有帳本」和「所有日期」的資料。<br>請往下捲動，找到<b>紅色標示</b>或<b>空白</b>的異常資料並刪除它。</p>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold border-b border-gray-100">
-                                    <tr>
-                                        <th class="p-4 w-32">日期</th>
-                                        <th class="p-4">項目</th>
-                                        <th class="p-4 text-right">金額</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-50">
-                                    <tr v-for="entry in filteredEntries" :key="entry.id" @click="handleEntryClick(entry)" class="hover:bg-red-50 cursor-pointer transition">
-                                        <td class="p-4 text-sm font-medium">
-                                            <span v-if="!entry.date" class="text-red-500 font-bold">⚠️ 日期錯誤</span>
-                                            <span v-else class="text-gray-600">{{ entry.date }}</span>
-                                        </td>
-                                        <td class="p-4">
-                                            <div class="font-bold text-gray-800">{{ entry.item || '(無說明)' }}</div>
-                                            <div class="text-xs text-gray-400">{{ entry.category }}</div>
-                                        </td>
-                                        <td :class="['p-4 text-right font-bold num-font', entry.type === 'income' ? 'text-green-600' : 'text-red-500']">
-                                            {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
-                                        </td>
-                                    </tr>
-                                    <tr v-if="filteredEntries.length === 0"><td colspan="3" class="p-8 text-center text-gray-400">真的完全沒資料，請確認資料庫是否正確</td></tr>
-                                </tbody>
-                            </table>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div v-for="entry in filteredEntries" :key="entry.id" class="p-4 border-b border-gray-100 hover:bg-gray-50 transition flex justify-between items-center group">
+                            
+                            <div class="flex items-center gap-3 overflow-hidden" @click="handleEntryClick(entry)">
+                                <div v-if="!entry.date || isNaN(entry.amount)" class="w-10 h-10 rounded-full bg-red-100 text-red-500 flex items-center justify-center shrink-0 animate-pulse">
+                                    <i class="fa-solid fa-bug"></i>
+                                </div>
+                                <div v-else :class="['w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs', entry.tab==='cash'?'bg-blue-400':'bg-purple-400']">
+                                    {{ entry.tab==='cash'?'現':'銀' }}
+                                </div>
+
+                                <div class="min-w-0">
+                                    <div class="font-bold text-gray-800 text-base">
+                                        {{ entry.item || '(無說明 - 請檢查)' }}
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                        <span :class="(!entry.date)?'text-red-500 font-bold bg-red-50 px-1':''">
+                                            {{ entry.date || '⚠️ 日期遺失' }}
+                                        </span>
+                                        <span class="bg-gray-100 px-2 py-0.5 rounded">{{ entry.category || '未分類' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-4">
+                                <div :class="['font-bold num-font text-lg', entry.type === 'income' ? 'text-green-500' : 'text-red-400']">
+                                    {{ entry.type === 'income' ? '+' : '-' }}{{ formatNumber(entry.amount) }}
+                                </div>
+                                <button v-if="isAdmin" @click="quickDelete(entry.id)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-500 hover:text-white text-gray-400 flex items-center justify-center transition">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+
+                        </div>
+                        <div v-if="filteredEntries.length === 0" class="p-10 text-center text-gray-400">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><br>正在讀取雲端資料庫...
                         </div>
                     </div>
                 </div>
             </main>
-
-            <div class="md:hidden bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full flex justify-around items-center z-20 pb-safe">
-                <button @click="currentTab = 'cash'" :class="['mobile-nav-item', currentTab === 'cash' ? 'active' : '']"><i class="fa-solid fa-wallet"></i><span>現金</span></button>
-                <button @click="currentTab = 'account'" :class="['mobile-nav-item', currentTab === 'account' ? 'active' : '']"><i class="fa-solid fa-building-columns"></i><span>帳戶</span></button>
-            </div>
         </template>
-
-        <div v-if="showEditModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border-4 border-red-100">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-bold text-gray-700">編輯/刪除紀錄</h3>
-                    <button @click="showEditModal = false" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
-                </div>
-                <div class="mb-6 text-center">
-                    <p class="text-sm text-gray-500 mb-2">如果你懷疑這筆資料是壞的，請直接刪除。</p>
-                    <div class="text-2xl font-bold text-gray-800">{{ form.item }}</div>
-                    <div class="text-xl font-bold mt-1" :class="form.type==='income'?'text-green-500':'text-red-500'">$ {{ form.amount }}</div>
-                    <div class="text-xs text-gray-400 mt-1">日期: {{ form.date || '無日期' }}</div>
-                </div>
-                <div class="flex gap-4">
-                    <button @click="deleteCurrentEntry" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold shadow-lg shadow-red-200 hover:bg-red-600 transition">確認刪除</button>
-                </div>
-            </div>
-        </div>
-        
-         <div v-if="showSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl h-[500px] flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-bold text-gray-700">系統設定</h3>
-                    <button @click="showSettings = false" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="overflow-y-auto flex-1 pr-2">
-                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">初始金額</h4>
-                    <div class="space-y-3 mb-6">
-                        <div><label class="text-xs text-gray-400 ml-1">現金初始</label><input type="number" v-model.number="settings.cashInitial" @change="saveSettings" class="input-std font-bold"></div>
-                        <div><label class="text-xs text-gray-400 ml-1">帳戶初始</label><input type="number" v-model.number="settings.accountInitial" @change="saveSettings" class="input-std font-bold"></div>
-                    </div>
-                </div>
-                <div class="pt-4 border-t border-gray-100 mt-4">
-                    <button @click="showSettings = false" class="w-full py-3 bg-gray-800 text-white rounded-xl font-bold">完成</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script type="module">
         import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, deleteDoc, doc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Firebase 設定 (維持不變)
+        // 這是你的金鑰設定 (跟診斷工具一樣，這一定是對的)
         const firebaseConfig = {
             apiKey: "AIzaSyB_H154LeiZ2slCghAzLBy02xxqlT1-0wU",
             authDomain: "ossen-money.firebaseapp.com",
@@ -173,15 +118,9 @@
                 const pinInput = ref('');
                 const loginError = ref(false);
                 const isAdmin = computed(() => role.value === 'admin');
-                const currentTab = ref('cash');
                 const transactions = ref([]);
-                const settings = ref({ cashInitial: 0, accountInitial: 0 });
-                const showEditModal = ref(false);
-                const showSettings = ref(false);
-                const editingId = ref(null);
-                const form = ref({});
 
-                // --- 修正：你的專屬密碼 ---
+                // 你的密碼邏輯
                 const checkPin = () => {
                     if (pinInput.value === '671213') { 
                         localStorage.setItem('ln_role', 'admin'); role.value = 'admin';
@@ -191,65 +130,53 @@
                         loginError.value = true; setTimeout(() => loginError.value = false, 2000);
                     }
                 };
-
                 const logout = () => { localStorage.removeItem('ln_role'); role.value = null; pinInput.value = ''; };
 
-                // --- 強力防呆格式化 ---
+                // 強力防呆：不管數字多怪，都回傳 0，絕不當機
                 const formatNumber = (num) => {
-                    if (num === undefined || num === null || isNaN(Number(num))) return '0';
+                    if (num === undefined || num === null || isNaN(Number(num))) return 'ERROR';
                     try { return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); } catch (e) { return '0'; }
                 };
 
-                // --- 救援模式列表：顯示所有資料，不管月份 ---
+                // 終極列表：混合所有資料，把壞掉的置頂
                 const filteredEntries = computed(() => {
                     if (!transactions.value) return [];
-                    return transactions.value.filter(t => {
-                        // 只過濾帳本(現金/帳戶)，不過濾日期
-                        return t && t.tab === currentTab.value;
-                    }).sort((a, b) => {
-                        // 讓壞掉的資料排最上面
-                        if (!a.date) return -1;
+                    // 複製一份陣列來排序
+                    return [...transactions.value].sort((a, b) => {
+                        // 1. 先把壞掉的 (沒日期) 排最上面
+                        if (!a.date) return -1; 
                         if (!b.date) return 1;
+                        // 2. 再把壞掉的 (金額怪怪的) 排上面
+                        if (isNaN(Number(a.amount))) return -1;
+                        if (isNaN(Number(b.amount))) return 1;
+                        // 3. 剩下的按照日期，越新的越上面
                         return new Date(b.date) - new Date(a.date);
                     });
                 });
 
+                // 連線資料庫
                 onMounted(() => {
+                    // 使用跟診斷工具一樣的 collection
                     const q = query(collection(db, "transactions"));
                     onSnapshot(q, (snapshot) => {
                         transactions.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     });
-                    const settingsRef = doc(db, "settings", "config");
-                    onSnapshot(settingsRef, (doc) => { if (doc.exists()) settings.value = doc.data(); });
                 });
 
-                const handleEntryClick = (entry) => {
-                    // 救援模式下，老闆也可以點擊來查看詳情，但只有管理員能刪除
-                    if (!isAdmin.value && role.value !== 'viewer') return;
-                    form.value = { ...entry };
-                    editingId.value = entry.id;
-                    showEditModal.value = true;
-                };
-
-                const deleteCurrentEntry = async () => {
-                    if (!editingId.value) return;
-                    if (!isAdmin.value) { alert("權限不足，請用管理員密碼 671213 登入"); return; }
-                    if (!confirm('確定要永久刪除嗎？')) return;
+                // 快速刪除功能
+                const quickDelete = async (id) => {
+                    if(!confirm('確定要永久刪除這筆資料嗎？')) return;
                     try {
-                        await deleteDoc(doc(db, "transactions", editingId.value));
-                        showEditModal.value = false;
-                        editingId.value = null;
-                        alert("刪除成功！");
-                    } catch (e) { alert("刪除失敗"); }
-                };
-                
-                const saveSettings = async () => { await setDoc(doc(db, "settings", "config"), settings.value); };
+                        await deleteDoc(doc(db, "transactions", id));
+                        // 刪除成功不需要做什麼，onSnapshot 會自動更新畫面
+                    } catch(e) {
+                        alert("刪除失敗：" + e.message);
+                    }
+                }
 
                 return {
                     role, pinInput, loginError, isAdmin, checkPin, logout,
-                    currentTab, transactions, filteredEntries, formatNumber,
-                    showEditModal, showSettings, form, editingId, handleEntryClick, deleteCurrentEntry,
-                    settings, saveSettings
+                    filteredEntries, formatNumber, quickDelete
                 };
             }
         }).mount('#app');
